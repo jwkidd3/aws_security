@@ -39,26 +39,14 @@
 </section>
 
 <section>
-  <h2>Authentication vs. Authorization</h2>
-  <p class="small">Two different questions — often conflated.</p>
-  <ul>
-    <li><strong>Authentication</strong> = <em>who are you?</em> — proving identity (password, MFA, federation)</li>
-    <li><strong>Authorization</strong> = <em>what can you do?</em> — what the identity is allowed to do once in</li>
-    <li>A user can be authenticated (logged in) and still denied (not authorized)</li>
-    <li>IAM handles both — but most policy work is authorization</li>
-  </ul>
-</section>
-
-<section>
-  <h2>IAM — The Building Blocks</h2>
+  <h2>IAM — Authn, Authz &amp; Building Blocks</h2>
+  <p class="small"><strong>Authentication</strong> = who are you? · <strong>Authorization</strong> = what can you do? IAM handles both; most policy work is authz.</p>
   <ul class="glossary">
     <li><strong>User</strong> — a long-lived identity for a human or legacy app (avoid where possible)</li>
     <li><strong>Group</strong> — a container of users; attach policies to groups, not users</li>
     <li><strong>Role</strong> — an identity that workloads or federated humans <em>assume</em> temporarily (short-lived creds)</li>
     <li><strong>Policy</strong> — a JSON document granting or denying actions on resources</li>
     <li><strong>Principal</strong> — who/what is making the request (user, role, service)</li>
-    <li><strong>Permission boundary</strong> — a maximum-allowed policy that caps what a role can ever receive</li>
-    <li><strong>SCP</strong> — org-level guardrail: even root in a member account can't exceed it</li>
   </ul>
 </section>
 
@@ -144,39 +132,17 @@
     <li><strong>Customer-managed key (CMK)</strong> — you own the key policy, rotation, grants, audit</li>
     <li><strong>Envelope encryption</strong> — KMS encrypts a per-object data key; the data key encrypts the data. Efficient at scale.</li>
     <li>Every use of a KMS key is logged in <strong>CloudTrail</strong></li>
-    <li><strong>CloudHSM</strong> — dedicated FIPS 140-2 Level 3 HSMs when you must hold the keys</li>
   </ul>
 </section>
 
 <section>
-  <h2>Encryption in Transit</h2>
+  <h2>Encryption in Transit &amp; Secrets</h2>
   <ul>
-    <li><strong>TLS</strong> on every endpoint — all AWS public endpoints already require HTTPS</li>
-    <li><strong>ACM</strong> (AWS Certificate Manager) — free public certs, automatic renewal for ELB, CloudFront, API Gateway</li>
-    <li><strong>ACM Private CA</strong> — private certificates for service-to-service mTLS</li>
-    <li>Pin modern protocols (TLS 1.2+), disable legacy ciphers at the load balancer</li>
-    <li>Database traffic too — enforce SSL on RDS, TLS on Redis, mTLS on MSK</li>
-  </ul>
-</section>
-
-<section>
-  <h2>Secrets Management</h2>
-  <ul>
+    <li><strong>TLS</strong> on every endpoint — AWS public endpoints already require HTTPS; pin TLS 1.2+</li>
+    <li><strong>ACM</strong> — free public certs with auto-renewal for ELB, CloudFront, API Gateway</li>
+    <li>Enforce in-transit encryption on databases too (SSL on RDS, TLS on Redis)</li>
+    <li><strong>Secrets Manager</strong> — store &amp; auto-rotate secrets; workloads fetch via IAM role at runtime</li>
     <li><strong>Never</strong> commit credentials to code, env files, or AMIs</li>
-    <li><strong>Secrets Manager</strong> — store secrets, rotate them automatically, retrieve via SDK at runtime</li>
-    <li><strong>SSM Parameter Store</strong> — lighter-weight, cheaper; SecureString parameters are KMS-encrypted</li>
-    <li>Workloads fetch secrets using their IAM role — not a bootstrap password</li>
-    <li>Rotate on a schedule — and after any suspected exposure</li>
-  </ul>
-</section>
-
-<section>
-  <h2>Data Discovery &amp; Classification</h2>
-  <ul>
-    <li><strong>Amazon Macie</strong> — ML-based discovery of sensitive data (PII, PHI, secrets) in S3</li>
-    <li>Flags open buckets, unencrypted buckets, public-access misconfigurations</li>
-    <li><strong>S3 Object Lock</strong> + versioning — WORM storage for compliance data</li>
-    <li><strong>S3 Block Public Access</strong> — account-level switch; turn it on everywhere unless you have a reason not to</li>
   </ul>
 </section>
 
