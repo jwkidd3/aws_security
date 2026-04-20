@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 4 — Security IN the Cloud · Part 2</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
+  .reveal h1 { font-size: 2.2em; }
+  .reveal h2 { font-size: 1.5em; }
+  .reveal h3 { font-size: 1.1em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul { line-height: 1.5; }
+  .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
+  .reveal .small { font-size: 0.7em; color:#555; }
+  .reveal .glossary li { font-size: 0.75em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.6em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide">
+  <h1>Module 4</h1>
+  <h3 class="accent">Security IN the Cloud — Part 2</h3>
+  <p class="small">Securing infrastructure · Monitoring &amp; detective controls</p>
+</section>
+
+<section>
+  <h2>Defense in Depth, Revisited</h2>
+  <p class="small">No single control is enough. Layer them.</p>
+  <ul>
+    <li><strong>Identity</strong> — MFA, least privilege, short-lived credentials</li>
+    <li><strong>Network</strong> — VPCs, subnets, security groups, WAF</li>
+    <li><strong>Host</strong> — patched AMIs, SSM Session Manager, anti-malware</li>
+    <li><strong>Application</strong> — input validation, SCA, secrets management</li>
+    <li><strong>Data</strong> — encryption at rest/in transit, tokenization</li>
+    <li><strong>Detection</strong> — CloudTrail, GuardDuty, Security Hub</li>
+  </ul>
+</section>
+
+<section>
+  <h2>VPC — Your Private Network</h2>
+  <ul>
+    <li><strong>VPC</strong> — a logically isolated network in AWS, spanning multiple AZs</li>
+    <li><strong>Subnet</strong> — a slice of the VPC's IP range, tied to one AZ</li>
+    <li><strong>Public subnet</strong> — routes to an <strong>Internet Gateway</strong>; reachable from the internet</li>
+    <li><strong>Private subnet</strong> — no direct internet path; outbound via <strong>NAT Gateway</strong> if needed</li>
+    <li>Common pattern: ALB/NLB in public subnets → app in private subnets → DB in isolated subnets</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Security Groups vs. NACLs</h2>
+  <ul>
+    <li><strong>Security group</strong> — per-ENI firewall, <em>stateful</em> (return traffic auto-allowed), default-deny inbound</li>
+    <li><strong>NACL</strong> (Network Access Control List) — per-subnet, <em>stateless</em>, numbered rules, default-allow — rarely needed beyond defaults</li>
+    <li><strong>SG rules can reference other SGs</strong> — the cleanest way to express "app may reach DB"</li>
+    <li>Audit tip: any SG allowing <code>0.0.0.0/0</code> on a non-web port is worth a second look</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Private Connectivity — No Internet Required</h2>
+  <ul>
+    <li><strong>VPC endpoint — Interface</strong> (PrivateLink) — a private ENI in your subnet for an AWS service or SaaS</li>
+    <li><strong>VPC endpoint — Gateway</strong> — S3 and DynamoDB only, added to a route table</li>
+    <li><strong>Transit Gateway</strong> — hub-and-spoke routing between many VPCs and on-prem</li>
+    <li><strong>Direct Connect / Site-to-Site VPN</strong> — private links back to corporate data centers</li>
+    <li>Keeping AWS-service traffic off the public internet is both a security and a cost win</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Web &amp; Edge Protection</h2>
+  <ul>
+    <li><strong>AWS WAF</strong> — L7 rules blocking SQLi, XSS, bad bots, rate abuse; attached to ALB, API Gateway, CloudFront, AppSync</li>
+    <li><strong>AWS Shield Standard</strong> — free, on by default, L3/L4 DDoS protection at the edge</li>
+    <li><strong>AWS Shield Advanced</strong> — paid; 24×7 DRT access, cost protection, L7 protection</li>
+    <li><strong>CloudFront</strong> — CDN that absorbs volumetric traffic and terminates TLS near users</li>
+    <li><strong>AWS Network Firewall</strong> — deep-inspection, domain-aware egress filtering</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Host &amp; Workload Hardening</h2>
+  <ul>
+    <li><strong>SSM Session Manager</strong> — browser-based shell into EC2 — no SSH keys, no open port 22, full audit log</li>
+    <li><strong>Patch Manager</strong> — orchestrated OS and package patching on a cadence</li>
+    <li><strong>EC2 Image Builder</strong> — golden AMIs built from a pipeline with hardening baked in</li>
+    <li><strong>Inspector</strong> — continuous vulnerability scanning of EC2, ECR images, and Lambda functions</li>
+    <li><strong>IMDSv2</strong> required — blocks classic SSRF-to-credential-theft attacks</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Monitoring — The Foundational Logs</h2>
+  <ul>
+    <li><strong>CloudTrail</strong> — every control-plane API call in the account, persisted to S3; enable in all regions &amp; all accounts, deliver to a central log account</li>
+    <li><strong>VPC Flow Logs</strong> — IP flow metadata for ENIs (accept/reject, src/dst, bytes)</li>
+    <li><strong>DNS (Route 53 Resolver) query logs</strong> — names being looked up from your VPC</li>
+    <li><strong>CloudWatch Logs</strong> — OS and application logs, queryable with Logs Insights</li>
+    <li><strong>S3 server access / data-event logs</strong> — per-object reads and writes</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Detective Controls</h2>
+  <p class="small"><em>Detective controls</em> find problems <em>after</em> they happen so you can respond.</p>
+  <ul>
+    <li><strong>GuardDuty</strong> — threat detection on CloudTrail, VPC Flow, DNS, EKS, S3, Malware, RDS — no agents</li>
+    <li><strong>Security Hub</strong> — aggregates findings from GuardDuty, Inspector, Macie, Config, partners; scores against CIS, PCI, AWS FSBP</li>
+    <li><strong>AWS Config</strong> — continuous resource inventory + rules ("no unencrypted EBS," "MFA on root")</li>
+    <li><strong>Detective</strong> — graph-based investigation across CloudTrail &amp; VPC flows</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Turning Detection into Response</h2>
+  <ul>
+    <li><strong>EventBridge</strong> — route a GuardDuty or Security Hub finding to a <strong>Lambda</strong>, <strong>SSM runbook</strong>, or ticket</li>
+    <li><strong>Auto-remediation</strong> — Config rule sees a public S3 bucket → Lambda blocks public access automatically</li>
+    <li><strong>Delegated admin</strong> — a central <em>security</em> account owns Security Hub / GuardDuty across the org</li>
+    <li>Practice the path: <em>finding → alert → action</em>. An alert nobody acts on is noise.</li>
+  </ul>
+</section>
+
+<section data-background-color="#FF9900">
+  <span class="lab-tag">Hands-On Lab · 35 min</span>
+  <h2>Lab 4 — Network Security Design</h2>
+  <ul>
+    <li>Design a VPC for a 3-tier app: ALB, app, RDS</li>
+    <li>Write the security-group rules as an SG-to-SG reference graph</li>
+    <li>Spot the mistakes in a given VPC/SG configuration</li>
+  </ul>
+  <p class="small"><code>labs/lab4-network-security.html</code></p>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>

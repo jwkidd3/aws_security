@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 4 — Network Security Design</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
+  .reveal h1 { font-size: 2em; }
+  .reveal h2 { font-size: 1.4em; }
+  .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul, .reveal ol { line-height: 1.5; }
+  .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
+  .reveal pre code { padding:12px; font-size:0.55em; line-height:1.3; }
+  .reveal .small { font-size: 0.72em; color:#555; }
+  .reveal table { font-size: 0.7em; border-collapse: collapse; width: 100%; }
+  .reveal th, .reveal td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; vertical-align: top; }
+  .reveal th { background: #f4f4f4; color: var(--aws-navy); }
+  .reveal .glossary li { font-size: 0.72em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h1,
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] h3,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.55em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide" data-background-color="#FF9900">
+  <span class="lab-tag">Hands-On Lab · 35 min</span>
+  <h1>Lab 4</h1>
+  <h3 style="color:#fff">Network Security Design</h3>
+  <p class="small" style="color:#fff">Module 4 — Security IN the Cloud · Part 2</p>
+</section>
+
+<section>
+  <h2>Objective</h2>
+  <p>Design a VPC and security-group graph for a 3-tier web app. Then review a handed-to-you configuration and find the mistakes.</p>
+</section>
+
+<section>
+  <h2>Terms You'll See</h2>
+  <ul class="glossary">
+    <li><strong>VPC</strong> — your isolated virtual network in AWS</li>
+    <li><strong>Subnet</strong> — slice of the VPC's IP range tied to one AZ</li>
+    <li><strong>IGW</strong> (Internet Gateway) — route target that makes a subnet public</li>
+    <li><strong>NAT Gateway</strong> — egress-only internet for private subnets</li>
+    <li><strong>Security group</strong> — stateful firewall on an ENI; default-deny inbound</li>
+    <li><strong>NACL</strong> — stateless subnet firewall; default-allow</li>
+    <li><strong>VPC endpoint</strong> — private path from your VPC to AWS services</li>
+    <li><strong>ALB</strong> — Application Load Balancer (L7)</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Scenario — 3-Tier Web App</h2>
+  <ul>
+    <li>Public ALB terminates HTTPS</li>
+    <li>App tier: auto-scaling EC2 in private subnets, one region, two AZs</li>
+    <li>Data tier: RDS PostgreSQL, Multi-AZ, no public endpoint</li>
+    <li>App needs to reach S3 and Secrets Manager</li>
+    <li>Engineers connect via SSM Session Manager — no SSH keys</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Task 1 — Subnet Layout</h2>
+  <p>Sketch the VPC. For each subnet, note: name, public/private/isolated, which AZ, and what lives there.</p>
+  <p>Answer these before moving on:</p>
+  <ol>
+    <li>How many subnets do you need at minimum?</li>
+    <li>Which subnets have an IGW route; which have a NAT route; which have <em>no</em> internet route?</li>
+    <li>How do the app instances reach S3 without going through the NAT Gateway?</li>
+    <li>How do engineers get a shell on an instance with no public IP, no bastion, no SSH?</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Task 2 — Security-Group Graph</h2>
+  <p>Name each SG and list its inbound rules (source → port).</p>
+  <table>
+    <thead><tr><th>Security Group</th><th>Inbound Rules</th></tr></thead>
+    <tbody>
+      <tr><td><code>sg-alb</code></td><td></td></tr>
+      <tr><td><code>sg-app</code></td><td></td></tr>
+      <tr><td><code>sg-db</code></td><td></td></tr>
+      <tr><td><code>sg-vpce</code> (for interface endpoints)</td><td></td></tr>
+    </tbody>
+  </table>
+  <p class="small">Prefer SG-to-SG references over CIDRs. Outbound defaults to allow-all unless you restrict it — consider whether you should.</p>
+</section>
+
+<section>
+  <h2>Task 2 — Sample Answer</h2>
+  <ul class="glossary">
+    <li><code>sg-alb</code> — inbound 443 from <code>0.0.0.0/0</code> (and 80 if you redirect to 443)</li>
+    <li><code>sg-app</code> — inbound 8080 from <code>sg-alb</code></li>
+    <li><code>sg-db</code> — inbound 5432 from <code>sg-app</code></li>
+    <li><code>sg-vpce</code> — inbound 443 from <code>sg-app</code></li>
+  </ul>
+  <p class="small">SG-to-SG references make the "app may reach DB" relationship <em>explicit</em> and survive IP changes.</p>
+</section>
+
+<section>
+  <h2>Task 3 — Review This Config</h2>
+  <p class="small">A junior engineer proposed this. Find at least five issues.</p>
+  <pre><code>VPC: 10.0.0.0/16
+Subnets:
+  subnet-public-a (10.0.0.0/24, AZ-a, IGW route)
+    - ALB
+    - App EC2
+    - RDS PostgreSQL
+
+Security groups:
+  sg-alb: inbound 443 from 0.0.0.0/0, inbound 22 from 0.0.0.0/0
+  sg-app: inbound 0-65535 from 0.0.0.0/0
+  sg-db:  inbound 5432 from 0.0.0.0/0
+
+Other:
+  - RDS "Publicly accessible" = Yes
+  - App instances have public IPs
+  - SSH key "app-key.pem" emailed to each developer
+  - CloudTrail disabled "to save money"</code></pre>
+</section>
+
+<section>
+  <h2>Task 3 — Issues</h2>
+  <ul>
+    <li>All tiers collapsed into one public subnet — no network segmentation; DB is internet-reachable</li>
+    <li>Single AZ — not even reliability-safe, let alone security-safe</li>
+    <li>ALB SG allows SSH from the internet — SSH does not belong on an ALB at all</li>
+    <li>App SG opens all 65k ports to <code>0.0.0.0/0</code></li>
+    <li>DB SG opens PostgreSQL to the internet</li>
+    <li>RDS is publicly accessible</li>
+    <li>App instances have public IPs — should be private + SSM</li>
+    <li>SSH keys distributed via email — replace with SSM Session Manager</li>
+    <li>CloudTrail disabled — there will be no evidence when something goes wrong</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Console Exploration (read-only)</h2>
+  <p class="small">Navigate to these in the AWS Console. <strong>Do not create, edit, or save anything.</strong></p>
+  <ol>
+    <li><strong>VPC</strong> → <em>Your VPCs</em> → any VPC → <em>Resource map</em>. Trace subnets, route tables, IGW, NAT</li>
+    <li><strong>VPC</strong> → <em>Endpoints</em>. Note which services have Gateway vs. Interface endpoints</li>
+    <li><strong>EC2</strong> → <em>Security groups</em>. Sort by name; open one and look at its <em>inbound</em> rules</li>
+    <li><strong>EC2</strong> → <em>Network ACLs</em>. Note the default allow-all and numbered-rule pattern</li>
+    <li><strong>WAF &amp; Shield</strong> → <em>Web ACLs</em>. Browse any existing ACL; notice the rule groups</li>
+  </ol>
+</section>
+
+<section data-background-color="#146EB4">
+  <h2>Discussion</h2>
+  <ul>
+    <li>Which of these mistakes would be caught by an AWS Config rule today?<br>
+      <span class="small" style="color:#cce"><code>restricted-ssh</code> · <code>vpc-sg-open-only-to-authorized-ports</code> · <code>rds-instance-public-access-check</code></span></li>
+    <li>What's the right way to prevent someone from creating an open security group in the first place?<br>
+      <span class="small" style="color:#cce">SCPs + permission boundaries + IaC reviews + policy-as-code in CI</span></li>
+    <li>Where do VPC endpoints earn their keep beyond security?<br>
+      <span class="small" style="color:#cce">Cost (no NAT egress fees) · performance (shorter path) · reliability (no internet dependency)</span></li>
+  </ul>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>

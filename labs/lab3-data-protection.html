@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 3 — Data Protection &amp; KMS</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
+  .reveal h1 { font-size: 2em; }
+  .reveal h2 { font-size: 1.4em; }
+  .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul, .reveal ol { line-height: 1.5; }
+  .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
+  .reveal pre code { padding:12px; font-size:0.55em; line-height:1.3; }
+  .reveal .small { font-size: 0.72em; color:#555; }
+  .reveal table { font-size: 0.7em; border-collapse: collapse; width: 100%; }
+  .reveal th, .reveal td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; vertical-align: top; }
+  .reveal th { background: #f4f4f4; color: var(--aws-navy); }
+  .reveal .glossary li { font-size: 0.72em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h1,
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] h3,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.55em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide" data-background-color="#FF9900">
+  <span class="lab-tag">Hands-On Lab · 30 min</span>
+  <h1>Lab 3</h1>
+  <h3 style="color:#fff">Data Protection &amp; KMS</h3>
+  <p class="small" style="color:#fff">Module 3 — Security IN the Cloud · Part 1</p>
+</section>
+
+<section>
+  <h2>Objective</h2>
+  <p>Choose the right encryption-at-rest option for each component in a fictional workload, decide when AWS-managed keys are sufficient vs. customer-managed keys, and review a KMS key policy for over-broad grants.</p>
+</section>
+
+<section>
+  <h2>Terms You'll See</h2>
+  <ul class="glossary">
+    <li><strong>KMS</strong> — AWS Key Management Service</li>
+    <li><strong>KMS key</strong> — logical key you grant use of via a key policy</li>
+    <li><strong>AWS-managed key</strong> — AWS creates and rotates; simple, free</li>
+    <li><strong>Customer-managed key (CMK)</strong> — you own the key policy, rotation, grants, and audit trail</li>
+    <li><strong>Envelope encryption</strong> — KMS encrypts a per-object data key; data key encrypts the data</li>
+    <li><strong>Key policy</strong> — resource policy attached to a KMS key (required, not optional)</li>
+    <li><strong>Secrets Manager</strong> — AWS service that stores and rotates secrets</li>
+    <li><strong>Object Lock</strong> — S3 WORM (write-once, read-many) for compliance storage</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Scenario — "HealthMetric" Workload</h2>
+  <p class="small">A regulated healthcare analytics workload running in one AWS account.</p>
+  <ul>
+    <li><strong>S3 bucket</strong> holding raw patient data exports (PHI)</li>
+    <li><strong>RDS PostgreSQL</strong> holding reporting data (derived, pseudonymized)</li>
+    <li><strong>EBS volumes</strong> attached to EC2 processing nodes</li>
+    <li><strong>Secrets Manager</strong> storing DB connection strings &amp; third-party API keys</li>
+    <li><strong>CloudTrail</strong> logs delivered to a separate log-archive bucket</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Task 1 — Pick the Right Key</h2>
+  <p>For each resource, pick <strong>AWS-managed key</strong>, <strong>Customer-managed key</strong>, or <strong>CloudHSM-backed key</strong>, and justify in one line.</p>
+  <table>
+    <thead><tr><th>Resource</th><th>Your choice</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Raw PHI S3 bucket</td><td></td><td></td></tr>
+      <tr><td>RDS PostgreSQL (derived data)</td><td></td><td></td></tr>
+      <tr><td>Worker-node EBS volumes</td><td></td><td></td></tr>
+      <tr><td>Secrets Manager secrets</td><td></td><td></td></tr>
+      <tr><td>CloudTrail log bucket</td><td></td><td></td></tr>
+    </tbody>
+  </table>
+  <p class="small">Hint: use CMKs anywhere you need per-workload audit, explicit grants, key-policy control, or cross-account sharing.</p>
+</section>
+
+<section>
+  <h2>Task 2 — Data in Transit</h2>
+  <ol>
+    <li>Which TLS-related option would you enable at the <strong>ALB</strong> (public endpoint)?</li>
+    <li>How do you enforce SSL connections to <strong>RDS</strong>?</li>
+    <li>How do you prevent writes to an <strong>S3 bucket</strong> over non-TLS?</li>
+    <li>How would you verify that <strong>intra-VPC</strong> service calls use TLS?</li>
+  </ol>
+  <p class="small">Hint for S3: bucket policy with <code>Condition: { "Bool": { "aws:SecureTransport": "false" } }</code> + <code>Deny</code>.</p>
+</section>
+
+<section>
+  <h2>Task 3 — Review This Key Policy</h2>
+  <pre><code>{
+  "Version": "2012-10-17",
+  "Id": "phi-bucket-cmk",
+  "Statement": [
+    {
+      "Sid": "EnableRoot",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::111122223333:root" },
+      "Action": "kms:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowEveryone",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": [
+        "kms:Encrypt","kms:Decrypt","kms:GenerateDataKey",
+        "kms:DescribeKey","kms:ReEncrypt*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}</code></pre>
+  <p>List at least <strong>3 problems</strong>. Which statement is dangerous, and what would you change?</p>
+</section>
+
+<section>
+  <h2>Task 3 — Answer Key</h2>
+  <ul>
+    <li><code>"Principal": "*"</code> allows <em>any</em> AWS principal, including other accounts — this is the headline bug</li>
+    <li>No <code>kms:ViaService</code> condition → the key can be used from any service, not just S3</li>
+    <li>No <code>aws:SourceAccount</code> / <code>kms:CallerAccount</code> condition → no account-scope guardrail</li>
+    <li>Including <code>kms:ReEncrypt*</code> with wildcards is often broader than needed</li>
+    <li>Fix: restrict <code>Principal</code> to specific role ARNs, add <code>"kms:ViaService": "s3.us-east-1.amazonaws.com"</code>, and scope actions to what the workload actually needs</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Console Exploration (read-only)</h2>
+  <p class="small">Navigate to these in the AWS Console. <strong>Do not create, edit, or save anything.</strong></p>
+  <ol>
+    <li><strong>KMS</strong> → <em>AWS managed keys</em> — scan names like <code>aws/s3</code>, <code>aws/rds</code>; note they're per-service</li>
+    <li>Open one AWS-managed key → view the <em>Key policy</em> tab; notice the default grants</li>
+    <li><strong>S3</strong> → any bucket → <em>Properties</em> → <em>Default encryption</em>; note SSE-S3 vs. SSE-KMS</li>
+    <li><strong>Secrets Manager</strong> → <em>Secrets</em>; open one to view rotation configuration (do not start a rotation)</li>
+    <li><strong>Macie</strong> → <em>Summary</em> — browse the kinds of findings it produces on S3 buckets</li>
+  </ol>
+</section>
+
+<section data-background-color="#146EB4">
+  <h2>Discussion</h2>
+  <ul>
+    <li>When is an AWS-managed key genuinely sufficient — and when is the audit burden of a CMK worth it?</li>
+    <li>Your org standard says "encrypt everything." How do you enforce that in code/pipelines rather than at review time?<br>
+      <span class="small" style="color:#cce">Config rules · SCPs forbidding unencrypted resources · cdk-nag / checkov in CI</span></li>
+    <li>What breaks the day someone schedules deletion of a CMK that's actively in use?</li>
+  </ul>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>

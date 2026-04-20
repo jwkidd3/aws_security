@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 5 — Incident Response Tabletop</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
+  .reveal h1 { font-size: 2em; }
+  .reveal h2 { font-size: 1.4em; }
+  .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul, .reveal ol { line-height: 1.5; }
+  .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
+  .reveal pre code { padding:12px; font-size:0.55em; line-height:1.3; }
+  .reveal .small { font-size: 0.72em; color:#555; }
+  .reveal .glossary li { font-size: 0.72em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h1,
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] h3,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.55em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide" data-background-color="#FF9900">
+  <span class="lab-tag">Hands-On Lab · 30 min</span>
+  <h1>Lab 5</h1>
+  <h3 style="color:#fff">Incident Response Tabletop</h3>
+  <p class="small" style="color:#fff">Module 5 — Security IN the Cloud · Part 3</p>
+</section>
+
+<section>
+  <h2>Objective</h2>
+  <p>Walk two realistic GuardDuty findings through a cloud-native IR workflow: detect, analyze, contain, eradicate, recover, learn. List the exact AWS services and actions you would use — and in what order.</p>
+</section>
+
+<section>
+  <h2>Terms You'll See</h2>
+  <ul class="glossary">
+    <li><strong>GuardDuty</strong> — AWS threat-detection service</li>
+    <li><strong>finding</strong> — a detection, scored Low / Medium / High</li>
+    <li><strong>Detective</strong> — service that builds investigation graphs from CloudTrail &amp; VPC flow</li>
+    <li><strong>Break-glass role</strong> — pre-provisioned emergency IAM role with elevated access</li>
+    <li><strong>Forensic account</strong> — isolated AWS account for evidence &amp; analysis</li>
+    <li><strong>IMDS</strong> — EC2 Instance Metadata Service; classic SSRF target</li>
+    <li><strong>SSM Session Manager</strong> — agent-based shell; no SSH needed</li>
+    <li><strong>EventBridge</strong> — rules that route events to Lambda, SSM, SNS, tickets</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Scenario A — Credential Exfiltration</h2>
+  <p class="small">GuardDuty finding:</p>
+  <pre><code>UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS
+  Severity: High
+  Resource: EC2 instance i-0a12b34c (prod-api account)
+  Detail:  Credentials from the instance role's IMDS were
+           observed being used from IP 203.0.113.42 (not AWS)</code></pre>
+  <p>Someone stole temporary credentials off an EC2 instance and is using them from the internet.</p>
+</section>
+
+<section>
+  <h2>Scenario A — Your Tasks</h2>
+  <ol>
+    <li>List the first <strong>five actions</strong> you take, in order</li>
+    <li>For each action, name the AWS service or API you would use</li>
+    <li>What do you preserve <em>before</em> you change anything?</li>
+    <li>Which <strong>root cause</strong> would you hunt for? (It's almost always one of three things.)</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Scenario A — Sample Playbook</h2>
+  <ol>
+    <li>Preserve: snapshot the EBS volume(s) of <code>i-0a12b34c</code> (<code>EC2 CreateSnapshot</code>); export recent CloudTrail &amp; VPC Flow Logs for the instance</li>
+    <li>Contain: replace the instance's security group with a <em>quarantine</em> SG that denies all inbound and outbound</li>
+    <li>Contain: rotate the instance-role trust — remove the role from the instance profile, then revoke active sessions with <code>aws iam put-role-policy</code> adding a <code>Deny *</code> with <code>aws:TokenIssueTime</code> before now</li>
+    <li>Analyze: pivot in <strong>Detective</strong> from the finding to the role's API activity — what else did <code>203.0.113.42</code> touch?</li>
+    <li>Eradicate: terminate the instance, redeploy from known-good AMI/IaC, force IMDSv2, disable metadata on the new instance if the workload doesn't use it</li>
+  </ol>
+  <p class="small">Root cause is typically: SSRF in the app, an over-permissive instance profile, or IMDSv1 still enabled.</p>
+</section>
+
+<section>
+  <h2>Scenario B — S3 Data Exfiltration</h2>
+  <pre><code>Exfiltration:IAMUser/AnomalousBehavior
+  Severity: High
+  Principal: iam-user/jdoe (developer, last logged in 3 months ago)
+  Detail:  91 GB of S3 objects listed + downloaded from
+           bucket "customer-exports-prod" in the last hour
+           from new country: off-network</code></pre>
+  <p class="small">A long-dormant IAM user's access keys are being used to pull a customer export bucket to an unknown location.</p>
+</section>
+
+<section>
+  <h2>Scenario B — Your Tasks</h2>
+  <ol>
+    <li>What do you do in the <strong>first 60 seconds</strong>?</li>
+    <li>Which IAM actions revoke access <em>immediately</em> vs. <em>eventually</em>?</li>
+    <li>Which CloudTrail fields tell you which keys, which IPs, which user agent?</li>
+    <li>Who else in the org needs to know — when, and via what channel?</li>
+    <li>What permanent change do you make so this entire <em>class</em> of incident is harder next time?</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Scenario B — Sample Playbook</h2>
+  <ol>
+    <li><strong>Deactivate</strong> and then <strong>delete</strong> both access keys on <code>jdoe</code> (<code>iam:UpdateAccessKey</code> / <code>iam:DeleteAccessKey</code>)</li>
+    <li>Attach an IAM policy to the user denying <code>"*":"*"</code>; disable console access</li>
+    <li>Preserve: query CloudTrail Lake for all actions by <code>jdoe</code> in the last 7 days — export results</li>
+    <li>Review S3 <em>server access logs</em> for the bucket: what objects were read, by request ID, to what egress bytes</li>
+    <li>Notify: incident commander → legal → privacy/DPO → customer comms if data is confirmed exfiltrated</li>
+    <li>Long-term: move humans off IAM users to Identity Center with short-lived creds; add a <em>dormant access key</em> Config rule; add GuardDuty <em>anomalous user behavior</em> auto-remediation via EventBridge → Lambda</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Console Exploration (read-only)</h2>
+  <p class="small">Navigate to these in the AWS Console. <strong>Do not create, edit, or save anything.</strong></p>
+  <ol>
+    <li><strong>GuardDuty</strong> → <em>Findings</em>. Open any finding and notice the <em>Actor</em>, <em>Action</em>, <em>Resource</em> tabs</li>
+    <li><strong>Security Hub</strong> → <em>Findings</em>. Browse the severity filter and the <em>Insights</em> tab</li>
+    <li><strong>Detective</strong> → open any existing investigation (if available) — note the timeline and related-entities view</li>
+    <li><strong>CloudTrail</strong> → <em>Event history</em>. Filter <em>Event source = iam.amazonaws.com</em> and look at <em>DeleteAccessKey</em> events</li>
+    <li><strong>Systems Manager</strong> → <em>Documents</em>. Search <code>AWS-DisableEC2InstanceSSH</code>, <code>AWSSupport-*</code> — these are built-in runbooks you can call from EventBridge</li>
+  </ol>
+</section>
+
+<section data-background-color="#146EB4">
+  <h2>Discussion</h2>
+  <ul>
+    <li>Which of these actions are <em>safe</em> to automate, and which need a human in the loop?</li>
+    <li>How do you practice these playbooks <em>before</em> a real incident? <span class="small" style="color:#cce">Game days, pre-recorded finding replays, chaos-eng style drills</span></li>
+    <li>If the compromised role had <em>tag-based</em> access, how much would the blast radius shrink?</li>
+  </ul>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>

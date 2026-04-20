@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 5 — Security IN the Cloud · Part 3</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
+  .reveal h1 { font-size: 2.2em; }
+  .reveal h2 { font-size: 1.5em; }
+  .reveal h3 { font-size: 1.1em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul, .reveal ol { line-height: 1.5; }
+  .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
+  .reveal .small { font-size: 0.7em; color:#555; }
+  .reveal .glossary li { font-size: 0.75em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.6em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide">
+  <h1>Module 5</h1>
+  <h3 class="accent">Security IN the Cloud — Part 3</h3>
+  <p class="small">DDoS mitigation · Incident response essentials</p>
+</section>
+
+<section>
+  <h2>DDoS — What You're Up Against</h2>
+  <p class="small">A <em>DDoS</em> (Distributed Denial of Service) attack saturates your capacity so legitimate users can't get through.</p>
+  <ul>
+    <li><strong>L3/L4 volumetric</strong> — packet floods saturating bandwidth or connection tables</li>
+    <li><strong>L7 application</strong> — valid-looking HTTP requests that exhaust app compute, DB connections, or third-party quotas</li>
+    <li><strong>Reflection / amplification</strong> — DNS, NTP, memcached misused to amplify packet size</li>
+    <li>The goal is not usually to breach data — it's to make you unreachable</li>
+  </ul>
+</section>
+
+<section>
+  <h2>AWS DDoS Mitigation — The Layers</h2>
+  <ul>
+    <li><strong>AWS backbone &amp; edge</strong> — massive capacity absorbs volumetric traffic before it reaches you</li>
+    <li><strong>Shield Standard</strong> — always on, free, automatic L3/L4 protection</li>
+    <li><strong>Shield Advanced</strong> — paid tier: cost protection, 24×7 DDoS Response Team, L7 detection, health-based detection</li>
+    <li><strong>CloudFront &amp; Global Accelerator</strong> — push ingress to the edge, nearest to users</li>
+    <li><strong>AWS WAF</strong> — rate-based rules and managed rule groups for L7 floods</li>
+    <li><strong>Route 53</strong> — Anycast DNS with built-in DDoS resilience</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Architecting for DDoS Resilience</h2>
+  <ul>
+    <li>Put <strong>CloudFront</strong> in front of every public-facing site — terminate TLS at the edge</li>
+    <li>Use <strong>auto-scaling</strong> + <strong>load balancers</strong> so capacity can absorb a surge</li>
+    <li>Protect <strong>origins</strong> — restrict origin access so the ALB/ASG only accepts traffic from CloudFront</li>
+    <li>Enforce <strong>rate limits</strong> on login, search, and any expensive endpoint</li>
+    <li>Keep a <strong>runbook</strong> — know who to call, what to turn on, what to disable</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Incident Response — Cloud-Native Reality</h2>
+  <ul>
+    <li>The cloud changes IR: every control is an API, every action leaves a log, every resource can be rebuilt</li>
+    <li>IR is a <em>capability</em>, not a document — it must be practiced</li>
+    <li>Plan for both <strong>infrastructure</strong> events (compromised EC2, leaked key) and <strong>service</strong> events (S3 misconfiguration)</li>
+    <li>The NIST framework applies: <em>Prepare → Detect &amp; Analyze → Contain → Eradicate → Recover → Lessons Learned</em></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Prepare — Before Anything Breaks</h2>
+  <ul>
+    <li>A dedicated <strong>security account</strong> for logs, findings, and forensic tools — isolated from production</li>
+    <li><strong>Break-glass IAM roles</strong> — pre-provisioned, heavily-audited, high-privilege roles responders can assume under emergency</li>
+    <li><strong>Contact &amp; escalation lists</strong> — on-call, legal, PR, AWS support, executive sign-off</li>
+    <li><strong>Runbooks</strong> (SSM documents) for common tasks: isolate an instance, rotate a key, disable a user</li>
+    <li><strong>Game days</strong> — simulate real incidents; rotate the responder</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Detect &amp; Analyze</h2>
+  <ul>
+    <li>GuardDuty, Security Hub, and Config findings are the usual triggers</li>
+    <li><strong>Amazon Detective</strong> — automatically builds investigation graphs across CloudTrail and VPC flows</li>
+    <li><strong>CloudTrail Lake</strong> / <strong>Logs Insights</strong> — ad-hoc queries across months of audit data</li>
+    <li>Answer these fast: <em>what happened, when, which principal, from what IP, which resources touched?</em></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Contain &amp; Eradicate</h2>
+  <p class="small">Common cloud-native containment actions:</p>
+  <ul>
+    <li><strong>Revoke credentials</strong> — disable an IAM user, remove access keys, force MFA re-auth</li>
+    <li><strong>Rotate</strong> — KMS keys, secrets, DB passwords, API tokens</li>
+    <li><strong>Quarantine an instance</strong> — swap its security group to one that denies all inbound/outbound, take an EBS snapshot first</li>
+    <li><strong>Block an IP</strong> — WAF IP-set or NACL rule</li>
+    <li><strong>Invalidate sessions</strong> — Cognito global sign-out, revoke session tokens</li>
+    <li><strong>Kill the stack</strong> — in some cases, terminating and redeploying from known-good IaC is fastest</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Recover &amp; Learn</h2>
+  <ul>
+    <li><strong>Recover</strong> — redeploy from clean IaC, restore from tested backups, validate data integrity, monitor closely</li>
+    <li><strong>Post-incident review</strong> — blameless, within 5 business days</li>
+    <li>Feed findings back into: detections, runbooks, SCPs, training, architecture</li>
+    <li>Track <strong>time-to-detect</strong> and <strong>time-to-contain</strong> — these are the numbers that matter</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Forensic Hygiene</h2>
+  <ul>
+    <li><strong>Preserve before you touch</strong> — snapshot EBS volumes, export logs, tag the evidence</li>
+    <li>Store evidence in a separate, read-only account with Object Lock</li>
+    <li>Don't power off a live instance before capturing memory if relevant</li>
+    <li>Legal &amp; compliance usually need to be in the loop before anything leaves AWS</li>
+  </ul>
+</section>
+
+<section data-background-color="#FF9900">
+  <span class="lab-tag">Hands-On Lab · 30 min</span>
+  <h2>Lab 5 — Incident Response Tabletop</h2>
+  <ul>
+    <li>A GuardDuty finding lands on your desk</li>
+    <li>Triage the scenario and list your first five actions</li>
+    <li>Identify the AWS services you'd touch and in what order</li>
+  </ul>
+  <p class="small"><code>labs/lab5-incident-response.html</code></p>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 6 — Mini Well-Architected Security Review</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
+  .reveal h1 { font-size: 2em; }
+  .reveal h2 { font-size: 1.4em; }
+  .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul, .reveal ol { line-height: 1.5; }
+  .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
+  .reveal .small { font-size: 0.72em; color:#555; }
+  .reveal table { font-size: 0.68em; border-collapse: collapse; width: 100%; }
+  .reveal th, .reveal td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; vertical-align: top; }
+  .reveal th { background: #f4f4f4; color: var(--aws-navy); }
+  .reveal .glossary li { font-size: 0.72em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h1,
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] h3,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.55em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide" data-background-color="#FF9900">
+  <span class="lab-tag">Capstone Lab · 25 min</span>
+  <h1>Lab 6</h1>
+  <h3 style="color:#fff">Mini Well-Architected Security Review</h3>
+  <p class="small" style="color:#fff">Module 6 — Course Wrap-Up</p>
+</section>
+
+<section>
+  <h2>Objective</h2>
+  <p>Run the morning's seven Security Pillar design principles against a fictional workload. Score each as <em>Meets / Partial / Gap</em>, then turn the gaps into a prioritized remediation roadmap.</p>
+</section>
+
+<section>
+  <h2>Terms You'll See</h2>
+  <ul class="glossary">
+    <li><strong>Well-Architected Review</strong> — structured walkthrough of a workload against AWS best practices</li>
+    <li><strong>Workload</strong> — the collection of resources delivering business value</li>
+    <li><strong>Finding</strong> — a best practice that isn't met (scored High / Medium / None risk)</li>
+    <li><strong>Improvement plan</strong> — the tool's suggested services &amp; docs for each finding</li>
+    <li><strong>Milestone</strong> — a saved snapshot of review answers; compared on re-review</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Scenario — "OrderFlow"</h2>
+  <p class="small">A 2-year-old e-commerce order-processing workload in one AWS account:</p>
+  <ul>
+    <li>Runs in one region, one VPC, one account shared with two other apps</li>
+    <li>Public ALB → EC2 auto-scaling group → RDS MySQL (Multi-AZ)</li>
+    <li>Images &amp; receipts in S3 (<code>orderflow-assets</code>, public-read for CloudFront)</li>
+    <li>Developers use IAM users with access keys; keys last rotated "a while ago"</li>
+    <li>CloudTrail enabled in <code>us-east-1</code> only; logs go to the same account</li>
+    <li>Security Hub &amp; GuardDuty are "on the roadmap"</li>
+    <li>Secrets are in a <code>.env</code> file baked into the AMI</li>
+    <li>TLS on the ALB; RDS doesn't enforce SSL; S3 bucket has default SSE-S3</li>
+    <li>No documented IR process; no game days ever run</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Task 1 — Score Against the Seven Principles</h2>
+  <table>
+    <thead><tr><th>Design Principle</th><th>Meets / Partial / Gap</th><th>Evidence / Why</th></tr></thead>
+    <tbody>
+      <tr><td>Strong identity foundation</td><td></td><td></td></tr>
+      <tr><td>Enable traceability</td><td></td><td></td></tr>
+      <tr><td>Apply security at all layers</td><td></td><td></td></tr>
+      <tr><td>Automate security best practices</td><td></td><td></td></tr>
+      <tr><td>Protect data in transit &amp; at rest</td><td></td><td></td></tr>
+      <tr><td>Keep people away from data</td><td></td><td></td></tr>
+      <tr><td>Prepare for security events</td><td></td><td></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Task 2 — Top-5 Remediation Roadmap</h2>
+  <p>From your gaps, pick the <strong>five</strong> items with the biggest risk-reduction payoff. Write each as a ticket:</p>
+  <table>
+    <thead><tr><th>#</th><th>Action</th><th>Owner</th><th>Target</th><th>Risk reduced</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>2</td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>3</td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>4</td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>5</td><td></td><td></td><td></td><td></td></tr>
+    </tbody>
+  </table>
+  <p class="small">Be honest about <em>Target</em> — nothing kills a roadmap faster than unrealistic dates.</p>
+</section>
+
+<section>
+  <h2>Sample Answer — Scoring</h2>
+  <ul class="glossary">
+    <li><strong>Identity</strong> — Gap: IAM users + long-lived keys; no Identity Center; no MFA evidence</li>
+    <li><strong>Traceability</strong> — Gap: CloudTrail single-region, no central log account, Security Hub/GuardDuty off</li>
+    <li><strong>Layers</strong> — Partial: VPC + SGs exist, but S3 bucket public-read, no WAF</li>
+    <li><strong>Automate</strong> — Gap: no Config rules, no SCPs, no policy-as-code</li>
+    <li><strong>Protect data</strong> — Partial: ALB TLS yes; RDS no SSL enforcement; S3 SSE-S3 but no CMK for sensitive data</li>
+    <li><strong>Keep people away</strong> — Gap: secrets in <code>.env</code> baked into AMI; devs have direct creds</li>
+    <li><strong>Prepare for events</strong> — Gap: no IR playbook, no game days, no break-glass roles</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Sample Answer — Top-5</h2>
+  <ol>
+    <li>Enable CloudTrail in <em>all regions</em> and deliver to a dedicated log-archive account — <em>visibility is the prerequisite for everything else</em></li>
+    <li>Turn on GuardDuty + Security Hub org-wide; route High findings to Slack/ticket system</li>
+    <li>Migrate developers off IAM user access keys to IAM Identity Center; enforce MFA</li>
+    <li>Move secrets out of the AMI into Secrets Manager; add rotation</li>
+    <li>Fix the public <code>orderflow-assets</code> bucket — CloudFront with OAC + Block Public Access on</li>
+  </ol>
+  <p class="small">Everything else (WAF, Config rules, IR playbooks) still matters — but these five give you the most risk reduction for the least effort, and most unlock the rest.</p>
+</section>
+
+<section>
+  <h2>Console Exploration (read-only)</h2>
+  <p class="small">Navigate to these in the AWS Console. <strong>Do not create, edit, or save anything.</strong></p>
+  <ol>
+    <li><strong>AWS Well-Architected Tool</strong> → <em>Define workload</em>. Start the flow (fill in fictional values), but <strong>do not click Save</strong></li>
+    <li>In the questionnaire, open the <em>Security</em> pillar and notice how each question maps to multiple best practices</li>
+    <li><strong>Trusted Advisor</strong> → <em>Security</em>. Browse the checks (open SGs, MFA on root, IAM use)</li>
+    <li><strong>Security Hub</strong> → <em>Standards</em> — note AWS Foundational Security Best Practices, CIS, PCI</li>
+  </ol>
+</section>
+
+<section data-background-color="#146EB4">
+  <h2>Wrap-Up Discussion</h2>
+  <ul>
+    <li>What's the one thing from today you'll try in your own environment next week?</li>
+    <li>Who owns the Well-Architected review cadence in your org — and if nobody does, how does that change?</li>
+    <li>Which of the anti-patterns you saw today feels most like home?</li>
+  </ul>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>

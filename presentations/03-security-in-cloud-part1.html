@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 3 — Security IN the Cloud · Part 1</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
+  .reveal h1 { font-size: 2.2em; }
+  .reveal h2 { font-size: 1.5em; }
+  .reveal h3 { font-size: 1.1em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul { line-height: 1.5; }
+  .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
+  .reveal pre code { padding:12px; font-size:0.65em; line-height:1.35; }
+  .reveal .small { font-size: 0.7em; color:#555; }
+  .reveal .glossary li { font-size: 0.75em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.6em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide">
+  <h1>Module 3</h1>
+  <h3 class="accent">Security IN the Cloud — Part 1</h3>
+  <p class="small">Identity &amp; Access Management · Data Protection Essentials</p>
+</section>
+
+<section>
+  <h2>Authentication vs. Authorization</h2>
+  <p class="small">Two different questions — often conflated.</p>
+  <ul>
+    <li><strong>Authentication</strong> = <em>who are you?</em> — proving identity (password, MFA, federation)</li>
+    <li><strong>Authorization</strong> = <em>what can you do?</em> — what the identity is allowed to do once in</li>
+    <li>A user can be authenticated (logged in) and still denied (not authorized)</li>
+    <li>IAM handles both — but most policy work is authorization</li>
+  </ul>
+</section>
+
+<section>
+  <h2>IAM — The Building Blocks</h2>
+  <ul class="glossary">
+    <li><strong>User</strong> — a long-lived identity for a human or legacy app (avoid where possible)</li>
+    <li><strong>Group</strong> — a container of users; attach policies to groups, not users</li>
+    <li><strong>Role</strong> — an identity that workloads or federated humans <em>assume</em> temporarily (short-lived creds)</li>
+    <li><strong>Policy</strong> — a JSON document granting or denying actions on resources</li>
+    <li><strong>Principal</strong> — who/what is making the request (user, role, service)</li>
+    <li><strong>Permission boundary</strong> — a maximum-allowed policy that caps what a role can ever receive</li>
+    <li><strong>SCP</strong> — org-level guardrail: even root in a member account can't exceed it</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Identity Federation &amp; IAM Identity Center</h2>
+  <ul>
+    <li><strong>IAM Identity Center</strong> (formerly AWS SSO) — central sign-on across all AWS accounts</li>
+    <li>Federate from your corporate IdP (Okta, Entra ID, Ping, Google Workspace) with SAML or OIDC</li>
+    <li>Humans log in once → assume short-lived roles in each account — no per-account IAM users</li>
+    <li>Machine workloads use <strong>IAM roles</strong> (EC2 instance profiles, ECS task roles, Lambda execution roles)</li>
+    <li>Goal: <strong>no long-lived access keys</strong> anywhere you can avoid them</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Root Account &amp; MFA</h2>
+  <ul>
+    <li>The <strong>root user</strong> is the original all-powerful account — lock it away</li>
+    <li><strong>MFA required</strong> on root — prefer a hardware key (FIDO2)</li>
+    <li>Remove <em>all</em> root access keys; use root only for billing and rare recovery tasks</li>
+    <li>Every human account <em>must</em> have MFA — no exceptions</li>
+    <li>Do daily work through IAM Identity Center or IAM roles, never as root</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Anatomy of an IAM Policy</h2>
+  <pre><code>{
+  "Effect": "Allow",
+  "Action": "s3:GetObject",
+  "Resource": "arn:aws:s3:::reports-prod/*",
+  "Condition": {
+    "StringEquals": { "aws:RequestedRegion": "us-east-1" },
+    "Bool":         { "aws:MultiFactorAuthPresent": "true" }
+  }
+}</code></pre>
+  <ul>
+    <li><strong>Effect</strong> — Allow or Deny (explicit <em>Deny</em> always wins)</li>
+    <li><strong>Action</strong> — API call(s), e.g., <code>s3:GetObject</code></li>
+    <li><strong>Resource</strong> — ARN(s) the actions apply to</li>
+    <li><strong>Condition</strong> — constraints: region, source IP, MFA, tag values…</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Least Privilege &amp; Policy Tooling</h2>
+  <ul>
+    <li><strong>Least privilege</strong> — grant only the actions actually used, on the specific resources needed</li>
+    <li>Avoid <code>"Action": "*"</code> and <code>"Resource": "*"</code> in anything that runs in production</li>
+    <li><strong>IAM Access Analyzer</strong> — flags policies that grant access outside your account or org; can generate a policy from observed CloudTrail activity</li>
+    <li><strong>IAM Policy Simulator</strong> — test a proposed policy against real API calls before deploying</li>
+    <li><strong>Last Accessed Info</strong> in the IAM console — see which services a role actually used (and prune)</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Resource-Based Policies</h2>
+  <p class="small">Policies attached <em>to the resource</em> rather than the principal — cross-account access without assumed roles.</p>
+  <ul>
+    <li><strong>S3 bucket policies</strong> — who can read/write objects in this bucket</li>
+    <li><strong>KMS key policies</strong> — who can use this key (required, not optional)</li>
+    <li><strong>SQS / SNS / Lambda resource policies</strong> — allow other accounts or services to invoke</li>
+    <li>A request is allowed if <em>either</em> side allows it — unless there is an explicit Deny</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Data Protection — The Big Picture</h2>
+  <ul>
+    <li><strong>Classify</strong> first — Public, Internal, Confidential, Restricted — controls follow the class</li>
+    <li><strong>Encrypt at rest</strong> — most AWS services encrypt by default; you choose <em>which key</em></li>
+    <li><strong>Encrypt in transit</strong> — TLS everywhere, including between services inside your VPC</li>
+    <li><strong>Limit direct access</strong> — pull data through APIs, not through human console sessions</li>
+    <li><strong>Protect backups</strong> — encrypted, versioned, tested, and often in a separate account</li>
+  </ul>
+</section>
+
+<section>
+  <h2>KMS — Key Management Service</h2>
+  <ul>
+    <li><strong>KMS key</strong> (formerly CMK) — the logical key you grant usage of via key policies</li>
+    <li><strong>AWS-managed key</strong> — AWS creates and controls; simple, no extra cost</li>
+    <li><strong>Customer-managed key (CMK)</strong> — you own the key policy, rotation, grants, audit</li>
+    <li><strong>Envelope encryption</strong> — KMS encrypts a per-object data key; the data key encrypts the data. Efficient at scale.</li>
+    <li>Every use of a KMS key is logged in <strong>CloudTrail</strong></li>
+    <li><strong>CloudHSM</strong> — dedicated FIPS 140-2 Level 3 HSMs when you must hold the keys</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Encryption in Transit</h2>
+  <ul>
+    <li><strong>TLS</strong> on every endpoint — all AWS public endpoints already require HTTPS</li>
+    <li><strong>ACM</strong> (AWS Certificate Manager) — free public certs, automatic renewal for ELB, CloudFront, API Gateway</li>
+    <li><strong>ACM Private CA</strong> — private certificates for service-to-service mTLS</li>
+    <li>Pin modern protocols (TLS 1.2+), disable legacy ciphers at the load balancer</li>
+    <li>Database traffic too — enforce SSL on RDS, TLS on Redis, mTLS on MSK</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Secrets Management</h2>
+  <ul>
+    <li><strong>Never</strong> commit credentials to code, env files, or AMIs</li>
+    <li><strong>Secrets Manager</strong> — store secrets, rotate them automatically, retrieve via SDK at runtime</li>
+    <li><strong>SSM Parameter Store</strong> — lighter-weight, cheaper; SecureString parameters are KMS-encrypted</li>
+    <li>Workloads fetch secrets using their IAM role — not a bootstrap password</li>
+    <li>Rotate on a schedule — and after any suspected exposure</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Data Discovery &amp; Classification</h2>
+  <ul>
+    <li><strong>Amazon Macie</strong> — ML-based discovery of sensitive data (PII, PHI, secrets) in S3</li>
+    <li>Flags open buckets, unencrypted buckets, public-access misconfigurations</li>
+    <li><strong>S3 Object Lock</strong> + versioning — WORM storage for compliance data</li>
+    <li><strong>S3 Block Public Access</strong> — account-level switch; turn it on everywhere unless you have a reason not to</li>
+  </ul>
+</section>
+
+<section data-background-color="#FF9900">
+  <span class="lab-tag">Hands-On Lab · 35 min</span>
+  <h2>Lab 2 — IAM Least Privilege Review</h2>
+  <ul>
+    <li>Read a real-looking IAM policy</li>
+    <li>List the violations</li>
+    <li>Rewrite it scoped to the actions and resources the app actually needs</li>
+  </ul>
+  <p class="small"><code>labs/lab2-iam-least-privilege.html</code></p>
+</section>
+
+<section data-background-color="#FF9900">
+  <span class="lab-tag">Hands-On Lab · 30 min</span>
+  <h2>Lab 3 — Data Protection &amp; KMS</h2>
+  <ul>
+    <li>Pick encryption choices for S3, RDS, EBS, and Secrets Manager in a fictional workload</li>
+    <li>Decide when an AWS-managed key is enough vs. a customer-managed key</li>
+    <li>Review a KMS key policy for over-broad grants</li>
+  </ul>
+  <p class="small"><code>labs/lab3-data-protection.html</code></p>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module 2 — Security OF the Cloud</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; letter-spacing: -0.5px; }
+  .reveal h1 { font-size: 2.2em; }
+  .reveal h2 { font-size: 1.5em; }
+  .reveal h3 { font-size: 1.1em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul { line-height: 1.5; }
+  .reveal .small { font-size: 0.7em; color:#555; }
+  .reveal .glossary li { font-size: 0.78em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide">
+  <h1>Module 2</h1>
+  <h3 class="accent">Security OF the Cloud</h3>
+  <p class="small">What AWS handles for you — and the evidence you can inherit.</p>
+</section>
+
+<section>
+  <h2>AWS Global Infrastructure</h2>
+  <ul>
+    <li><strong>Region</strong> — a geographic area (e.g., <code>us-east-1</code>); data stays in-region unless you move it</li>
+    <li><strong>Availability Zone (AZ)</strong> — one or more discrete data centers in a region, isolated from other AZs</li>
+    <li><strong>Edge location</strong> — Points-of-Presence used by CloudFront and the global network</li>
+    <li><strong>Local Zones / Wavelength / Outposts</strong> — AWS infrastructure closer to users or on-prem</li>
+    <li>Security, latency, and compliance all drive <em>where</em> you deploy</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Data Center Security</h2>
+  <p class="small">Controls AWS runs on your behalf — you don't configure these, you <em>inherit</em> them.</p>
+  <ul>
+    <li><strong>Physical</strong> — perimeter controls, badge access, 24×7 guards, CCTV, disk destruction logs</li>
+    <li><strong>Environmental</strong> — fire suppression, power redundancy, climate control</li>
+    <li><strong>Personnel</strong> — background checks, need-to-know access, separation of duties</li>
+    <li><strong>Hardware &amp; Nitro</strong> — purpose-built hypervisor with a hardware security root of trust</li>
+    <li><strong>Decommissioning</strong> — NIST 800-88 media sanitization before hardware leaves the floor</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Network Security at the Infrastructure Layer</h2>
+  <ul>
+    <li>All traffic between AZs travels over AWS's own fiber, not the public internet</li>
+    <li>All data in transit between Regions is encrypted by default on the AWS backbone</li>
+    <li>DDoS protection is on by default at the edge — <strong>Shield Standard</strong> is built-in and free</li>
+    <li>The Nitro System isolates your workload from AWS operator access — even AWS staff can't read your running instance memory</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Compliance &amp; Governance</h2>
+  <p class="small">AWS maintains dozens of third-party attestations. You <em>inherit</em> the infrastructure controls.</p>
+  <ul>
+    <li><strong>SOC 1 / SOC 2 / SOC 3</strong> — financial &amp; trust-services controls</li>
+    <li><strong>ISO 27001 / 27017 / 27018</strong> — information-security and cloud-specific standards</li>
+    <li><strong>PCI-DSS</strong> — payment-card industry</li>
+    <li><strong>HIPAA / HITRUST</strong> — U.S. healthcare</li>
+    <li><strong>FedRAMP / DoD SRG</strong> — U.S. government</li>
+    <li><strong>GDPR</strong> — EU data-protection readiness tooling</li>
+  </ul>
+</section>
+
+<section>
+  <h2>AWS Artifact</h2>
+  <ul>
+    <li>Self-serve portal in the AWS Console for downloading AWS compliance reports</li>
+    <li>Download SOC reports, ISO certificates, PCI AOC, FedRAMP packages, and more</li>
+    <li>Sign AWS-offered agreements (BAA for HIPAA, NDAs) in-place</li>
+    <li>Auditors asking <em>"show me the SOC 2"</em>? That's Artifact</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Governance Services — Your Side</h2>
+  <p class="small">AWS provides the evidence; you provide the organization-wide policy.</p>
+  <ul>
+    <li><strong>AWS Organizations</strong> — multi-account management under a single billing root</li>
+    <li><strong>Service Control Policies (SCPs)</strong> — account-wide guardrails; even an admin can't exceed them</li>
+    <li><strong>Control Tower</strong> — opinionated landing zone with built-in guardrails</li>
+    <li><strong>AWS Config</strong> — continuous configuration tracking and rule-based compliance</li>
+    <li><strong>Audit Manager</strong> — continuously collects evidence mapped to frameworks (PCI, HIPAA, CIS…)</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Multi-Account Strategy (Quick Tour)</h2>
+  <ul>
+    <li>Separate accounts are the strongest AWS isolation boundary — blast radius, billing, and audit scope all shrink</li>
+    <li>Common structure: <em>management</em>, <em>log archive</em>, <em>security tooling</em>, <em>prod</em>, <em>non-prod</em>, <em>sandbox</em> OUs</li>
+    <li>SCPs applied at the OU level enforce region allow-lists, deny-root-user, prohibit public S3, etc.</li>
+    <li>Central logs and security findings flow into dedicated security accounts</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Key Takeaways</h2>
+  <ul>
+    <li>AWS secures the <strong>physical, network, and virtualization</strong> layers — you inherit those controls with evidence in Artifact</li>
+    <li>You still own <strong>configuration, identity, data, and operations</strong> in your accounts</li>
+    <li>Governance tools (Organizations, SCPs, Config, Control Tower) are where your side of the line becomes <em>enforceable</em></li>
+    <li>Next: the first part of <em>Security IN the Cloud</em> — identity and data protection</li>
+  </ul>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>
