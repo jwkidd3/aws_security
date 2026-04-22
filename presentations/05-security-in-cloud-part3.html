@@ -10,13 +10,14 @@
 <style>
   :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
   .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
-  .reveal h1 { font-size: 2.2em; }
-  .reveal h2 { font-size: 1.5em; }
+  .reveal { font-size: 32px; }
+  .reveal h1 { font-size: 2em; }
+  .reveal h2 { font-size: 1.3em; }
   .reveal h3 { font-size: 1.1em; color: var(--aws-blue); }
   .reveal section { text-align: left; }
   .reveal section.title-slide { text-align: center; }
   .reveal .accent { color: var(--aws-orange); }
-  .reveal ul, .reveal ol { line-height: 1.5; }
+  .reveal ul, .reveal ol { line-height: 1.35; }
   .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
   .reveal .small { font-size: 0.7em; color:#555; }
   .reveal .glossary li { font-size: 0.75em; margin-bottom: 4px; }
@@ -38,7 +39,7 @@
 </section>
 
 <section>
-  <h2>DDoS — What You're Up Against</h2>
+  <h2>🌊 DDoS — What You're Up Against</h2>
   <p class="small">A <em>DDoS</em> (Distributed Denial of Service) attack saturates your capacity so legitimate users can't get through.</p>
   <ul>
     <li><strong>L3/L4 volumetric</strong> — packet floods saturating bandwidth or connection tables</li>
@@ -49,7 +50,7 @@
 </section>
 
 <section>
-  <h2>AWS DDoS Mitigation — The Layers</h2>
+  <h2>🛡️ AWS DDoS Mitigation — The Layers</h2>
   <ul>
     <li><strong>AWS backbone &amp; edge</strong> — massive capacity absorbs volumetric traffic before it reaches you</li>
     <li><strong>Shield Standard</strong> — always on, free, automatic L3/L4 protection</li>
@@ -61,7 +62,7 @@
 </section>
 
 <section>
-  <h2>Architecting for DDoS Resilience</h2>
+  <h2>🏗️ Architecting for DDoS Resilience</h2>
   <ul>
     <li>Put <strong>CloudFront</strong> in front of every public-facing site — terminate TLS at the edge</li>
     <li>Use <strong>auto-scaling</strong> + <strong>load balancers</strong> so capacity can absorb a surge</li>
@@ -72,7 +73,7 @@
 </section>
 
 <section>
-  <h2>Incident Response — Cloud-Native Reality</h2>
+  <h2>🚨 Incident Response — Cloud-Native Reality</h2>
   <ul>
     <li>The cloud changes IR: every control is an API, every action leaves a log, every resource can be rebuilt</li>
     <li>IR is a <em>capability</em>, not a document — it must be practiced</li>
@@ -82,7 +83,7 @@
 </section>
 
 <section>
-  <h2>Prepare — Before Anything Breaks</h2>
+  <h2>🧰 Prepare — Before Anything Breaks</h2>
   <ul>
     <li>A dedicated <strong>security account</strong> for logs, findings, and forensic tools — isolated from production</li>
     <li><strong>Break-glass IAM roles</strong> — pre-provisioned, heavily-audited, high-privilege roles responders can assume under emergency</li>
@@ -93,7 +94,7 @@
 </section>
 
 <section>
-  <h2>Detect &amp; Analyze</h2>
+  <h2>🔍 Detect &amp; Analyze</h2>
   <ul>
     <li>GuardDuty, Security Hub, and Config findings are the usual triggers</li>
     <li><strong>Amazon Detective</strong> — automatically builds investigation graphs across CloudTrail and VPC flows</li>
@@ -103,7 +104,7 @@
 </section>
 
 <section>
-  <h2>Contain &amp; Eradicate</h2>
+  <h2>🧯 Contain &amp; Eradicate</h2>
   <p class="small">Common cloud-native containment actions:</p>
   <ul>
     <li><strong>Revoke credentials</strong> — disable an IAM user, remove access keys, force MFA re-auth</li>
@@ -116,7 +117,7 @@
 </section>
 
 <section>
-  <h2>Recover &amp; Learn</h2>
+  <h2>📈 Recover &amp; Learn</h2>
   <ul>
     <li><strong>Recover</strong> — redeploy from clean IaC, restore from tested backups, validate data integrity, monitor closely</li>
     <li><strong>Post-incident review</strong> — blameless, within 5 business days</li>
@@ -126,7 +127,7 @@
 </section>
 
 <section>
-  <h2>Forensic Hygiene</h2>
+  <h2>🧪 Forensic Hygiene</h2>
   <ul>
     <li><strong>Preserve before you touch</strong> — snapshot EBS volumes, export logs, tag the evidence</li>
     <li>Store evidence in a separate, read-only account with Object Lock</li>

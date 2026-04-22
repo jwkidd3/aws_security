@@ -10,13 +10,14 @@
 <style>
   :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
   .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
-  .reveal h1 { font-size: 2em; }
-  .reveal h2 { font-size: 1.4em; }
+  .reveal { font-size: 32px; }
+  .reveal h1 { font-size: 1.8em; }
+  .reveal h2 { font-size: 1.2em; }
   .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
   .reveal section { text-align: left; }
   .reveal section.title-slide { text-align: center; }
   .reveal .accent { color: var(--aws-orange); }
-  .reveal ul, .reveal ol { line-height: 1.5; }
+  .reveal ul, .reveal ol { line-height: 1.35; }
   .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
   .reveal pre code { padding:12px; font-size:0.55em; line-height:1.3; }
   .reveal .small { font-size: 0.72em; color:#555; }
@@ -45,12 +46,12 @@
 </section>
 
 <section>
-  <h2>Objective</h2>
+  <h2>🎯 Objective</h2>
   <p>Choose the right encryption-at-rest option for each component in a fictional workload, decide when AWS-managed keys are sufficient vs. customer-managed keys, and review a KMS key policy for over-broad grants.</p>
 </section>
 
 <section>
-  <h2>Terms You'll See</h2>
+  <h2>📚 Terms You'll See</h2>
   <ul class="glossary">
     <li><strong>KMS</strong> — AWS Key Management Service</li>
     <li><strong>KMS key</strong> — logical key you grant use of via a key policy</li>
@@ -64,7 +65,7 @@
 </section>
 
 <section>
-  <h2>Scenario — "HealthMetric" Workload</h2>
+  <h2>🏥 Scenario — "HealthMetric" Workload</h2>
   <p class="small">A regulated healthcare analytics workload running in one AWS account.</p>
   <ul>
     <li><strong>S3 bucket</strong> holding raw patient data exports (PHI)</li>
@@ -76,7 +77,7 @@
 </section>
 
 <section>
-  <h2>Task 1 — Pick the Right Key</h2>
+  <h2>🔑 Task 1 — Pick the Right Key</h2>
   <p>For each resource, pick <strong>AWS-managed key</strong>, <strong>Customer-managed key</strong>, or <strong>CloudHSM-backed key</strong>, and justify in one line.</p>
   <table>
     <thead><tr><th>Resource</th><th>Your choice</th><th>Why</th></tr></thead>
@@ -92,7 +93,7 @@
 </section>
 
 <section>
-  <h2>Task 2 — Data in Transit</h2>
+  <h2>🔒 Task 2 — Data in Transit</h2>
   <ol>
     <li>Which TLS-related option would you enable at the <strong>ALB</strong> (public endpoint)?</li>
     <li>How do you enforce SSL connections to <strong>RDS</strong>?</li>
@@ -103,7 +104,7 @@
 </section>
 
 <section>
-  <h2>Task 3 — Review This Key Policy</h2>
+  <h2>📜 Task 3 — Review This Key Policy</h2>
   <pre><code>{
   "Version": "2012-10-17",
   "Id": "phi-bucket-cmk",
@@ -131,7 +132,7 @@
 </section>
 
 <section>
-  <h2>Task 3 — Answer Key</h2>
+  <h2>🗝️ Task 3 — Answer Key</h2>
   <ul>
     <li><code>"Principal": "*"</code> allows <em>any</em> AWS principal, including other accounts — this is the headline bug</li>
     <li>No <code>kms:ViaService</code> condition → the key can be used from any service, not just S3</li>
@@ -142,7 +143,7 @@
 </section>
 
 <section>
-  <h2>Console Exploration (read-only)</h2>
+  <h2>🔍 Console Exploration (read-only)</h2>
   <p class="small">Navigate to these in the AWS Console. <strong>Do not create, edit, or save anything.</strong></p>
   <ol>
     <li><strong>KMS</strong> → <em>AWS managed keys</em> — scan names like <code>aws/s3</code>, <code>aws/rds</code>; note they're per-service</li>
@@ -154,7 +155,7 @@
 </section>
 
 <section data-background-color="#146EB4">
-  <h2>Discussion</h2>
+  <h2>💬 Discussion</h2>
   <ul>
     <li>When is an AWS-managed key genuinely sufficient — and when is the audit burden of a CMK worth it?</li>
     <li>Your org standard says "encrypt everything." How do you enforce that in code/pipelines rather than at review time?<br>

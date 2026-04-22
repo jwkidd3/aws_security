@@ -10,13 +10,14 @@
 <style>
   :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
   .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
-  .reveal h1 { font-size: 2.2em; }
-  .reveal h2 { font-size: 1.5em; }
+  .reveal { font-size: 32px; }
+  .reveal h1 { font-size: 2em; }
+  .reveal h2 { font-size: 1.3em; }
   .reveal h3 { font-size: 1.1em; color: var(--aws-blue); }
   .reveal section { text-align: left; }
   .reveal section.title-slide { text-align: center; }
   .reveal .accent { color: var(--aws-orange); }
-  .reveal ul { line-height: 1.5; }
+  .reveal ul { line-height: 1.35; }
   .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
   .reveal .small { font-size: 0.7em; color:#555; }
   .reveal .glossary li { font-size: 0.75em; margin-bottom: 4px; }
@@ -38,7 +39,7 @@
 </section>
 
 <section>
-  <h2>Defense in Depth, Revisited</h2>
+  <h2>🧅 Defense in Depth, Revisited</h2>
   <p class="small">No single control is enough. Layer them.</p>
   <ul>
     <li><strong>Identity</strong> — MFA, least privilege, short-lived credentials</li>
@@ -51,7 +52,7 @@
 </section>
 
 <section>
-  <h2>VPC — Your Private Network</h2>
+  <h2>🌐 VPC — Your Private Network</h2>
   <ul>
     <li><strong>VPC</strong> — a logically isolated network in AWS, spanning multiple AZs</li>
     <li><strong>Subnet</strong> — a slice of the VPC's IP range, tied to one AZ</li>
@@ -62,7 +63,7 @@
 </section>
 
 <section>
-  <h2>Security Groups vs. NACLs</h2>
+  <h2>🚧 Security Groups vs. NACLs</h2>
   <ul>
     <li><strong>Security group</strong> — per-ENI firewall, <em>stateful</em> (return traffic auto-allowed), default-deny inbound</li>
     <li><strong>NACL</strong> (Network Access Control List) — per-subnet, <em>stateless</em>, numbered rules, default-allow — rarely needed beyond defaults</li>
@@ -72,7 +73,7 @@
 </section>
 
 <section>
-  <h2>Private Connectivity — No Internet Required</h2>
+  <h2>🔗 Private Connectivity — No Internet Required</h2>
   <ul>
     <li><strong>VPC endpoint — Interface</strong> (PrivateLink) — a private ENI in your subnet for an AWS service or SaaS</li>
     <li><strong>VPC endpoint — Gateway</strong> — S3 and DynamoDB only, added to a route table</li>
@@ -83,7 +84,7 @@
 </section>
 
 <section>
-  <h2>Web &amp; Edge Protection</h2>
+  <h2>🛡️ Web &amp; Edge Protection</h2>
   <ul>
     <li><strong>AWS WAF</strong> — L7 rules blocking SQLi, XSS, bad bots, rate abuse; attached to ALB, API Gateway, CloudFront, AppSync</li>
     <li><strong>AWS Shield Standard</strong> — free, on by default, L3/L4 DDoS protection at the edge</li>
@@ -94,18 +95,18 @@
 </section>
 
 <section>
-  <h2>Host &amp; Workload Hardening</h2>
+  <h2>💪 Host &amp; Workload Hardening</h2>
   <ul>
     <li><strong>SSM Session Manager</strong> — browser-based shell into EC2 — no SSH keys, no open port 22, full audit log</li>
     <li><strong>Patch Manager</strong> — orchestrated OS and package patching on a cadence</li>
     <li><strong>EC2 Image Builder</strong> — golden AMIs built from a pipeline with hardening baked in</li>
     <li><strong>Inspector</strong> — continuous vulnerability scanning of EC2, ECR images, and Lambda functions</li>
-    <li><strong>IMDSv2</strong> required — blocks classic SSRF-to-credential-theft attacks</li>
+    <li><strong>IMDSv2</strong> required — the <em>Instance Metadata Service</em> hands out the EC2 instance's temporary IAM credentials; <strong>v1</strong> answered any local HTTP GET (which <em>SSRF</em> bugs in web apps can trick the server into making), so attackers harvested the creds. <strong>v2</strong> requires a session token first — close that whole class of attack by disabling v1.</li>
   </ul>
 </section>
 
 <section>
-  <h2>Monitoring — The Foundational Logs</h2>
+  <h2>📊 Monitoring — The Foundational Logs</h2>
   <ul>
     <li><strong>CloudTrail</strong> — every control-plane API call in the account, persisted to S3; enable in all regions &amp; all accounts, deliver to a central log account</li>
     <li><strong>VPC Flow Logs</strong> — IP flow metadata for ENIs (accept/reject, src/dst, bytes)</li>
@@ -116,7 +117,7 @@
 </section>
 
 <section>
-  <h2>Detective Controls</h2>
+  <h2>🔍 Detective Controls</h2>
   <p class="small"><em>Detective controls</em> find problems <em>after</em> they happen so you can respond.</p>
   <ul>
     <li><strong>GuardDuty</strong> — threat detection on CloudTrail, VPC Flow, DNS, EKS, S3, Malware, RDS — no agents</li>
@@ -127,7 +128,7 @@
 </section>
 
 <section>
-  <h2>Turning Detection into Response</h2>
+  <h2>⚡ Turning Detection into Response</h2>
   <ul>
     <li><strong>EventBridge</strong> — route a GuardDuty or Security Hub finding to a <strong>Lambda</strong>, <strong>SSM runbook</strong>, or ticket</li>
     <li><strong>Auto-remediation</strong> — Config rule sees a public S3 bucket → Lambda blocks public access automatically</li>

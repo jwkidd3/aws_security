@@ -10,13 +10,14 @@
 <style>
   :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
   .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
-  .reveal h1 { font-size: 2em; }
-  .reveal h2 { font-size: 1.4em; }
+  .reveal { font-size: 32px; }
+  .reveal h1 { font-size: 1.8em; }
+  .reveal h2 { font-size: 1.2em; }
   .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
   .reveal section { text-align: left; }
   .reveal section.title-slide { text-align: center; }
   .reveal .accent { color: var(--aws-orange); }
-  .reveal ul, .reveal ol { line-height: 1.5; }
+  .reveal ul, .reveal ol { line-height: 1.35; }
   .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
   .reveal .small { font-size: 0.72em; color:#555; }
   .reveal table { font-size: 0.68em; border-collapse: collapse; width: 100%; }
@@ -44,12 +45,12 @@
 </section>
 
 <section>
-  <h2>Objective</h2>
+  <h2>🎯 Objective</h2>
   <p>Run the morning's seven Security Pillar design principles against a fictional workload. Score each as <em>Meets / Partial / Gap</em>, then turn the gaps into a prioritized remediation roadmap.</p>
 </section>
 
 <section>
-  <h2>Terms You'll See</h2>
+  <h2>📚 Terms You'll See</h2>
   <ul class="glossary">
     <li><strong>Well-Architected Review</strong> — structured walkthrough of a workload against AWS best practices</li>
     <li><strong>Workload</strong> — the collection of resources delivering business value</li>
@@ -60,7 +61,7 @@
 </section>
 
 <section>
-  <h2>Scenario — "OrderFlow"</h2>
+  <h2>🛒 Scenario — "OrderFlow"</h2>
   <p class="small">A 2-year-old e-commerce order-processing workload in one AWS account:</p>
   <ul>
     <li>Runs in one region, one VPC, one account shared with two other apps</li>
@@ -76,7 +77,7 @@
 </section>
 
 <section>
-  <h2>Task 1 — Score Against the Seven Principles</h2>
+  <h2>📊 Task 1 — Score Against the Seven Principles</h2>
   <table>
     <thead><tr><th>Design Principle</th><th>Meets / Partial / Gap</th><th>Evidence / Why</th></tr></thead>
     <tbody>
@@ -92,7 +93,7 @@
 </section>
 
 <section>
-  <h2>Task 2 — Top-5 Remediation Roadmap</h2>
+  <h2>🗺️ Task 2 — Top-5 Remediation Roadmap</h2>
   <p>From your gaps, pick the <strong>five</strong> items with the biggest risk-reduction payoff. Write each as a ticket:</p>
   <table>
     <thead><tr><th>#</th><th>Action</th><th>Owner</th><th>Target</th><th>Risk reduced</th></tr></thead>
@@ -108,7 +109,7 @@
 </section>
 
 <section>
-  <h2>Sample Answer — Scoring</h2>
+  <h2>✅ Sample Answer — Scoring</h2>
   <ul class="glossary">
     <li><strong>Identity</strong> — Gap: IAM users + long-lived keys; no Identity Center; no MFA evidence</li>
     <li><strong>Traceability</strong> — Gap: CloudTrail single-region, no central log account, Security Hub/GuardDuty off</li>
@@ -121,7 +122,7 @@
 </section>
 
 <section>
-  <h2>Sample Answer — Top-5</h2>
+  <h2>🏆 Sample Answer — Top-5</h2>
   <ol>
     <li>Enable CloudTrail in <em>all regions</em> and deliver to a dedicated log-archive account — <em>visibility is the prerequisite for everything else</em></li>
     <li>Turn on GuardDuty + Security Hub org-wide; route High findings to Slack/ticket system</li>
@@ -133,7 +134,7 @@
 </section>
 
 <section>
-  <h2>Console Exploration (read-only)</h2>
+  <h2>🔍 Console Exploration (read-only)</h2>
   <p class="small">Navigate to these in the AWS Console. <strong>Do not create, edit, or save anything.</strong></p>
   <ol>
     <li><strong>AWS Well-Architected Tool</strong> → <em>Define workload</em>. Start the flow (fill in fictional values), but <strong>do not click Save</strong></li>
@@ -144,7 +145,7 @@
 </section>
 
 <section data-background-color="#146EB4">
-  <h2>Wrap-Up Discussion</h2>
+  <h2>🎉 Wrap-Up Discussion</h2>
   <ul>
     <li>What's the one thing from today you'll try in your own environment next week?</li>
     <li>Who owns the Well-Architected review cadence in your org — and if nobody does, how does that change?</li>

@@ -10,13 +10,14 @@
 <style>
   :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
   .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
-  .reveal h1 { font-size: 2em; }
-  .reveal h2 { font-size: 1.4em; }
+  .reveal { font-size: 32px; }
+  .reveal h1 { font-size: 1.8em; }
+  .reveal h2 { font-size: 1.2em; }
   .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
   .reveal section { text-align: left; }
   .reveal section.title-slide { text-align: center; }
   .reveal .accent { color: var(--aws-orange); }
-  .reveal ul, .reveal ol { line-height: 1.5; }
+  .reveal ul, .reveal ol { line-height: 1.35; }
   .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
   .reveal pre code { padding:12px; font-size:0.55em; line-height:1.3; }
   .reveal .small { font-size: 0.72em; color:#555; }
@@ -42,13 +43,13 @@
 </section>
 
 <section>
-  <h2>Objective</h2>
+  <h2>🎯 Objective</h2>
   <p>Read the IAM policy attached to an application role, identify least-privilege violations, and rewrite it so the app can do its job — and nothing else.</p>
   <p class="small"><em>Least privilege</em> = grant only the permissions actually needed.</p>
 </section>
 
 <section>
-  <h2>Terms You'll See</h2>
+  <h2>📚 Terms You'll See</h2>
   <ul class="glossary">
     <li><strong>IAM</strong> — AWS's service for controlling who can do what</li>
     <li><strong>IAM policy</strong> — JSON document listing allowed/denied actions on resources</li>
@@ -62,7 +63,7 @@
 </section>
 
 <section>
-  <h2>Scenario — <code>app-orders-processor</code></h2>
+  <h2>📋 Scenario — <code>app-orders-processor</code></h2>
   <p class="small">You're reviewing the IAM role attached to an app that processes customer orders.</p>
   <ul>
     <li>Reads order events from one SQS queue:<br>
@@ -75,7 +76,7 @@
 </section>
 
 <section>
-  <h2>The Current Policy</h2>
+  <h2>📜 The Current Policy</h2>
   <pre><code>{
   "Version": "2012-10-17",
   "Statement": [
@@ -100,7 +101,7 @@
 </section>
 
 <section>
-  <h2>Tasks</h2>
+  <h2>✏️ Tasks</h2>
   <ol>
     <li>List <strong>at least 5 violations</strong>. Consider:
       <ul>
@@ -116,7 +117,7 @@
 </section>
 
 <section>
-  <h2>Hints</h2>
+  <h2>💡 Hints</h2>
   <ul>
     <li>DynamoDB actions you likely need: <code>GetItem</code>, <code>PutItem</code>, <code>UpdateItem</code>, <code>BatchWriteItem</code></li>
     <li>SQS actions you likely need: <code>ReceiveMessage</code>, <code>DeleteMessage</code>, <code>GetQueueAttributes</code></li>
@@ -126,7 +127,7 @@
 </section>
 
 <section>
-  <h2>Sample Solution</h2>
+  <h2>✅ Sample Solution</h2>
   <pre><code>{
   "Version": "2012-10-17",
   "Statement": [
@@ -162,7 +163,7 @@
 </section>
 
 <section>
-  <h2>Console Exploration (read-only)</h2>
+  <h2>🔍 Console Exploration (read-only)</h2>
   <p class="small">Navigate to these in the AWS Console. <strong>Do not create, edit, or save anything.</strong></p>
   <ol>
     <li>IAM → <strong>Policies</strong>. Filter by type <em>AWS managed</em>. Open <code>AdministratorAccess</code> and view the JSON tab — notice the wildcards</li>
@@ -174,7 +175,7 @@
 </section>
 
 <section data-background-color="#146EB4">
-  <h2>Discussion</h2>
+  <h2>💬 Discussion</h2>
   <ul>
     <li>How would you detect the original policy <em>before</em> it reaches production?<br>
       <span class="small" style="color:#cce">CI policy lint (e.g., <code>cfn-guard</code>, <code>cdk-nag</code>, <code>checkov</code>) · IAM Access Analyzer policy validation · SCPs</span></li>

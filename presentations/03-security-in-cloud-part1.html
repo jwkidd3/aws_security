@@ -10,13 +10,14 @@
 <style>
   :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
   .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
-  .reveal h1 { font-size: 2.2em; }
-  .reveal h2 { font-size: 1.5em; }
+  .reveal { font-size: 32px; }
+  .reveal h1 { font-size: 2em; }
+  .reveal h2 { font-size: 1.3em; }
   .reveal h3 { font-size: 1.1em; color: var(--aws-blue); }
   .reveal section { text-align: left; }
   .reveal section.title-slide { text-align: center; }
   .reveal .accent { color: var(--aws-orange); }
-  .reveal ul { line-height: 1.5; }
+  .reveal ul { line-height: 1.35; }
   .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
   .reveal pre code { padding:12px; font-size:0.65em; line-height:1.35; }
   .reveal .small { font-size: 0.7em; color:#555; }
@@ -39,7 +40,7 @@
 </section>
 
 <section>
-  <h2>IAM — Authn, Authz &amp; Building Blocks</h2>
+  <h2>👤 IAM — Authn, Authz &amp; Building Blocks</h2>
   <p class="small"><strong>Authentication</strong> = who are you? · <strong>Authorization</strong> = what can you do? IAM handles both; most policy work is authz.</p>
   <ul class="glossary">
     <li><strong>User</strong> — a long-lived identity for a human or legacy app (avoid where possible)</li>
@@ -51,7 +52,7 @@
 </section>
 
 <section>
-  <h2>Identity Federation &amp; IAM Identity Center</h2>
+  <h2>🪪 Identity Federation &amp; IAM Identity Center</h2>
   <ul>
     <li><strong>IAM Identity Center</strong> (formerly AWS SSO) — central sign-on across all AWS accounts</li>
     <li>Federate from your corporate IdP (Okta, Entra ID, Ping, Google Workspace) with SAML or OIDC</li>
@@ -62,7 +63,7 @@
 </section>
 
 <section>
-  <h2>Root Account &amp; MFA</h2>
+  <h2>🗝️ Root Account &amp; MFA</h2>
   <ul>
     <li>The <strong>root user</strong> is the original all-powerful account — lock it away</li>
     <li><strong>MFA required</strong> on root — prefer a hardware key (FIDO2)</li>
@@ -73,7 +74,7 @@
 </section>
 
 <section>
-  <h2>Anatomy of an IAM Policy</h2>
+  <h2>📜 Anatomy of an IAM Policy</h2>
   <pre><code>{
   "Effect": "Allow",
   "Action": "s3:GetObject",
@@ -92,7 +93,7 @@
 </section>
 
 <section>
-  <h2>Least Privilege &amp; Policy Tooling</h2>
+  <h2>🎯 Least Privilege &amp; Policy Tooling</h2>
   <ul>
     <li><strong>Least privilege</strong> — grant only the actions actually used, on the specific resources needed</li>
     <li>Avoid <code>"Action": "*"</code> and <code>"Resource": "*"</code> in anything that runs in production</li>
@@ -103,7 +104,7 @@
 </section>
 
 <section>
-  <h2>Resource-Based Policies</h2>
+  <h2>📎 Resource-Based Policies</h2>
   <p class="small">Policies attached <em>to the resource</em> rather than the principal — cross-account access without assumed roles.</p>
   <ul>
     <li><strong>S3 bucket policies</strong> — who can read/write objects in this bucket</li>
@@ -114,7 +115,7 @@
 </section>
 
 <section>
-  <h2>Data Protection — The Big Picture</h2>
+  <h2>🛡️ Data Protection — The Big Picture</h2>
   <ul>
     <li><strong>Classify</strong> first — Public, Internal, Confidential, Restricted — controls follow the class</li>
     <li><strong>Encrypt at rest</strong> — most AWS services encrypt by default; you choose <em>which key</em></li>
@@ -125,18 +126,19 @@
 </section>
 
 <section>
-  <h2>KMS — Key Management Service</h2>
+  <h2>🔐 KMS — Key Management Service</h2>
   <ul>
     <li><strong>KMS key</strong> (formerly CMK) — the logical key you grant usage of via key policies</li>
     <li><strong>AWS-managed key</strong> — AWS creates and controls; simple, no extra cost</li>
     <li><strong>Customer-managed key (CMK)</strong> — you own the key policy, rotation, grants, audit</li>
+    <li><strong>CloudHSM-backed key</strong> — a KMS key whose material lives in a dedicated hardware security module (HSM) cluster you own, rather than in shared KMS infrastructure — reach for it only when regulation (e.g., certain finance or gov workloads) requires single-tenant key hardware</li>
     <li><strong>Envelope encryption</strong> — KMS encrypts a per-object data key; the data key encrypts the data. Efficient at scale.</li>
     <li>Every use of a KMS key is logged in <strong>CloudTrail</strong></li>
   </ul>
 </section>
 
 <section>
-  <h2>Encryption in Transit &amp; Secrets</h2>
+  <h2>🔒 Encryption in Transit &amp; Secrets</h2>
   <ul>
     <li><strong>TLS</strong> on every endpoint — AWS public endpoints already require HTTPS; pin TLS 1.2+</li>
     <li><strong>ACM</strong> — free public certs with auto-renewal for ELB, CloudFront, API Gateway</li>

@@ -10,13 +10,14 @@
 <style>
   :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
   .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
-  .reveal h1 { font-size: 2em; }
-  .reveal h2 { font-size: 1.4em; }
+  .reveal { font-size: 32px; }
+  .reveal h1 { font-size: 1.8em; }
+  .reveal h2 { font-size: 1.2em; }
   .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
   .reveal section { text-align: left; }
   .reveal section.title-slide { text-align: center; }
   .reveal .accent { color: var(--aws-orange); }
-  .reveal ul, .reveal ol { line-height: 1.5; }
+  .reveal ul, .reveal ol { line-height: 1.35; }
   .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
   .reveal .small { font-size: 0.72em; color:#555; }
   .reveal table { font-size: 0.7em; border-collapse: collapse; width: 100%; }
@@ -44,12 +45,12 @@
 </section>
 
 <section>
-  <h2>Objective</h2>
+  <h2>🎯 Objective</h2>
   <p>For three realistic workloads, decide which side of the AWS Shared Responsibility line each security control sits on. Identify the controls that are <em>genuinely shared</em> — where both AWS and the customer play a part.</p>
 </section>
 
 <section>
-  <h2>Terms You'll See</h2>
+  <h2>📚 Terms You'll See</h2>
   <ul class="glossary">
     <li><strong>Shared Responsibility Model</strong> — AWS secures the cloud; you secure what's in it</li>
     <li><strong>IaaS / PaaS / SaaS</strong> — layers of abstraction; the line shifts as you climb</li>
@@ -62,7 +63,7 @@
 </section>
 
 <section>
-  <h2>Scenario 1 — Company Website on EC2</h2>
+  <h2>🖥️ Scenario 1 — Company Website on EC2</h2>
   <p class="small">Apache running on two EC2 instances in a VPC, behind an ALB, with an RDS MySQL backend.</p>
   <p>For each control below, pick <strong>AWS</strong>, <strong>Customer</strong>, or <strong>Shared</strong>:</p>
   <table>
@@ -83,7 +84,7 @@
 </section>
 
 <section>
-  <h2>Scenario 2 — Serverless API</h2>
+  <h2>⚡ Scenario 2 — Serverless API</h2>
   <p class="small">API Gateway → Lambda (Python) → DynamoDB. Logs to CloudWatch. JWT auth via Cognito.</p>
   <table>
     <thead><tr><th>Control</th><th>Owner</th></tr></thead>
@@ -102,7 +103,7 @@
 </section>
 
 <section>
-  <h2>Scenario 3 — S3 Static Site + CloudFront</h2>
+  <h2>📦 Scenario 3 — S3 Static Site + CloudFront</h2>
   <p class="small">Marketing site: HTML/JS assets in S3, served by CloudFront. Route 53 for DNS.</p>
   <table>
     <thead><tr><th>Control</th><th>Owner</th></tr></thead>
@@ -111,7 +112,6 @@
       <tr><td>S3 bucket policy and Block Public Access</td><td></td></tr>
       <tr><td>CloudFront TLS termination infrastructure</td><td></td></tr>
       <tr><td>WAF rules attached to CloudFront</td><td></td></tr>
-      <tr><td>Route 53 DNSSEC signing key management (if enabled)</td><td></td></tr>
       <tr><td>Access logging configuration</td><td></td></tr>
       <tr><td>Responding to a GuardDuty finding for the site</td><td></td></tr>
     </tbody>
@@ -119,7 +119,7 @@
 </section>
 
 <section>
-  <h2>Answer Key (Discussion)</h2>
+  <h2>🗝️ Answer Key (Discussion)</h2>
   <p class="small">Quick-reference — your instructor will walk through the reasoning.</p>
   <ul class="glossary">
     <li><strong>AWS</strong> — physical DC, hypervisor, network fabric, storage media sanitization, managed-service engine patching (RDS, Lambda runtime, DynamoDB), edge TLS infrastructure</li>
@@ -129,7 +129,7 @@
 </section>
 
 <section>
-  <h2>Console Exploration (read-only)</h2>
+  <h2>🔍 Console Exploration (read-only)</h2>
   <p class="small">Navigate to these in the AWS Console. <strong>Do not create, edit, or save anything.</strong></p>
   <ol>
     <li>Search for <strong>AWS Artifact</strong> → <em>Reports</em> tab. Browse (don't download) the available SOC, ISO, PCI reports</li>
@@ -139,7 +139,7 @@
 </section>
 
 <section data-background-color="#146EB4">
-  <h2>Discussion</h2>
+  <h2>💬 Discussion</h2>
   <ul>
     <li>Which rows surprised the class?</li>
     <li>For the rows labeled <em>Shared</em> — what does "shared" actually mean in practice for your org?</li>
