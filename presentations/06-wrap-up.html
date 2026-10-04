@@ -37,28 +37,18 @@
   <p class="small">Well-Architected tool · Next steps</p>
 </section>
 
-<section>
-  <h2>🏛️ AWS Well-Architected Framework — Recap</h2>
+<section style="font-size:43.2px">
+  <h2>🛠️ Well-Architected Framework &amp; Tool</h2>
   <ul>
-    <li>A published set of best practices across six pillars: Operational Excellence, <strong>Security</strong>, Reliability, Performance, Cost, Sustainability</li>
-    <li>Everything we covered today maps to the <strong>Security Pillar</strong> questions</li>
-    <li>Free PDF whitepaper — a living document AWS updates as services evolve</li>
-    <li>The <strong>Well-Architected Tool</strong> in the console is the interactive version</li>
+    <li>Best practices across six pillars — everything today maps to the <strong>Security Pillar</strong></li>
+    <li>The <strong>Well-Architected Tool</strong> (free, in the console): define a workload, answer the questionnaire pillar by pillar</li>
+    <li>Gaps become findings scored <em>High / Medium / None</em>, each linked to an improvement plan</li>
+    <li>Save a <strong>milestone</strong> and re-review later to track progress</li>
+    <li><strong>Trusted Advisor</strong> and <strong>Security Hub standards</strong> (AWS Foundational Security Best Practices, CIS) give you automated checks to back up the answers</li>
   </ul>
 </section>
 
-<section>
-  <h2>🛠️ The Well-Architected Tool</h2>
-  <ul>
-    <li>Free AWS Console service</li>
-    <li>Define a <strong>workload</strong> (your app/system) and answer the questionnaire pillar by pillar</li>
-    <li>Each answer maps to <strong>best practices</strong>; gaps become <strong>findings</strong> scored <em>High / Medium / None</em></li>
-    <li>Each finding links to an <strong>improvement plan</strong> (AWS docs, services, patterns)</li>
-    <li>Save a <strong>milestone</strong> (snapshot) and re-review later to track progress</li>
-  </ul>
-</section>
-
-<section>
+<section style="font-size:43.2px">
   <h2>🔁 A Typical Security Review Flow</h2>
   <ol>
     <li>Architect + security owner + workload team meet for 60–90 min</li>
@@ -70,24 +60,24 @@
   </ol>
 </section>
 
-<section>
+<section style="font-size:41.6px">
   <h2>✅ Security Best-Practice Checklist (Today in One Slide)</h2>
   <ul class="glossary">
     <li>Organizations + SCPs + Control Tower for the org-level guardrails</li>
     <li>Root locked with hardware MFA, no access keys</li>
     <li>IAM Identity Center for humans; IAM roles for workloads; no long-lived keys</li>
-    <li>CloudTrail in <em>all regions</em>, delivered to a central log account</li>
+    <li>CloudTrail in <em>all regions</em> with log-file validation, delivered to a central log account</li>
     <li>Config + Config rules + Security Hub standards enabled</li>
     <li>GuardDuty &amp; Inspector enabled org-wide</li>
     <li>S3 Block Public Access on; default encryption; versioning; Object Lock on regulated data</li>
-    <li>KMS customer-managed keys for sensitive data; Secrets Manager for credentials</li>
-    <li>CloudFront + WAF + Shield in front of public apps</li>
+    <li>KMS customer managed keys for sensitive data; Secrets Manager for credentials</li>
+    <li>CloudFront (with Origin Access Control, so the bucket stays private) + WAF + Shield in front of public apps</li>
     <li>Private subnets for app + DB; VPC endpoints for AWS services; no 0.0.0.0/0 SGs on app ports</li>
     <li>Written IR runbook, tested via game day in the last quarter</li>
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>⚠️ Anti-Patterns to Watch For</h2>
   <ul>
     <li>"It's behind a VPN, so it's fine" — identity and data controls still apply</li>
@@ -100,7 +90,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🚀 Where to Go Next</h2>
   <ul>
     <li><strong>AWS Security Documentation</strong> — the definitive reference for every service</li>
@@ -112,27 +102,16 @@
   </ul>
 </section>
 
-<section>
-  <h2>🎒 Take-Home Challenge</h2>
-  <p>Pick one workload you own. In the next two weeks:</p>
-  <ol>
-    <li>Run it through the Well-Architected Security Pillar in the console</li>
-    <li>Pick the <em>top three</em> findings with the biggest risk-reduction payoff</li>
-    <li>Write them up as engineering tickets with owners and target dates</li>
-    <li>Schedule a re-review 90 days out</li>
-  </ol>
-  <p class="small">That's all it takes to start a real security program — and you already have the template.</p>
-</section>
-
-<section data-background-color="#FF9900">
-  <span class="lab-tag">Capstone Lab · 25 min</span>
-  <h2>Lab 6 — Mini WA Security Review</h2>
+<section data-background-color="#FF9900" style="font-size:43.2px">
+  <span class="lab-tag">Hands-On Lab · 30 min</span>
+  <h2>Lab 7 — Mini WA Security Review</h2>
   <ul>
-    <li>Read the scenario for a fictional workload</li>
-    <li>Score it against the Security Pillar design principles</li>
-    <li>Turn your findings into a prioritized remediation roadmap</li>
+    <li>Define the OrderFlow workload in the Well-Architected Tool and answer key Security pillar questions</li>
+    <li>Read the risks and improvement plan and save a <code>baseline</code> milestone</li>
+    <li>Score the seven design principles and build a Top-3 roadmap</li>
+    <li>Re-answer as if the Top-3 shipped and compare milestones</li>
   </ul>
-  <p class="small"><code>labs/lab6-security-wa-review.html</code></p>
+  <p class="small"><code>labs/lab7-security-wa-review.html</code></p>
 </section>
 
 </div></div>

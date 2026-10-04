@@ -38,7 +38,7 @@
   <p class="small">DDoS mitigation · Incident response essentials</p>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🌊 DDoS — What You're Up Against</h2>
   <p class="small">A <em>DDoS</em> (Distributed Denial of Service) attack saturates your capacity so legitimate users can't get through.</p>
   <ul>
@@ -49,7 +49,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🛡️ AWS DDoS Mitigation — The Layers</h2>
   <ul>
     <li><strong>AWS backbone &amp; edge</strong> — massive capacity absorbs volumetric traffic before it reaches you</li>
@@ -61,7 +61,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🏗️ Architecting for DDoS Resilience</h2>
   <ul>
     <li>Put <strong>CloudFront</strong> in front of every public-facing site — terminate TLS at the edge</li>
@@ -72,17 +72,17 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🚨 Incident Response — Cloud-Native Reality</h2>
   <ul>
     <li>The cloud changes IR: every control is an API, every action leaves a log, every resource can be rebuilt</li>
     <li>IR is a <em>capability</em>, not a document — it must be practiced</li>
     <li>Plan for both <strong>infrastructure</strong> events (compromised EC2, leaked key) and <strong>service</strong> events (S3 misconfiguration)</li>
-    <li>The NIST framework applies: <em>Prepare → Detect &amp; Analyze → Contain → Eradicate → Recover → Lessons Learned</em></li>
+    <li>The NIST incident-response lifecycle (SP 800-61) applies: <em>Prepare → Detect &amp; Analyze → Contain → Eradicate → Recover → Lessons Learned</em></li>
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🧰 Prepare — Before Anything Breaks</h2>
   <ul>
     <li>A dedicated <strong>security account</strong> for logs, findings, and forensic tools — isolated from production</li>
@@ -93,58 +93,51 @@
   </ul>
 </section>
 
-<section>
-  <h2>🔍 Detect &amp; Analyze</h2>
-  <ul>
-    <li>GuardDuty, Security Hub, and Config findings are the usual triggers</li>
-    <li><strong>Amazon Detective</strong> — automatically builds investigation graphs across CloudTrail and VPC flows</li>
-    <li><strong>CloudTrail Lake</strong> / <strong>Logs Insights</strong> — ad-hoc queries across months of audit data</li>
-    <li>Answer these fast: <em>what happened, when, which principal, from what IP, which resources touched?</em></li>
-  </ul>
-</section>
-
-<section>
+<section style="font-size:35.2px">
   <h2>🧯 Contain &amp; Eradicate</h2>
   <p class="small">Common cloud-native containment actions:</p>
   <ul>
-    <li><strong>Revoke credentials</strong> — disable an IAM user, remove access keys, force MFA re-auth</li>
+    <li><strong>Revoke credentials</strong> — deactivate access keys, delete the console password, attach a deny-all policy (IAM has no "disable user" switch); for roles, <em>Revoke active sessions</em> — removing a role from an instance profile doesn't invalidate credentials already issued</li>
     <li><strong>Rotate</strong> — KMS keys, secrets, DB passwords, API tokens</li>
-    <li><strong>Quarantine an instance</strong> — swap its security group to one that denies all inbound/outbound, take an EBS snapshot first</li>
+    <li><strong>Quarantine an instance</strong> — snapshot EBS first, then swap to a no-rules security group — plus a deny-all NACL, because SGs don't cut already-tracked connections</li>
     <li><strong>Block an IP</strong> — WAF IP-set or NACL rule</li>
     <li><strong>Invalidate sessions</strong> — Cognito global sign-out, revoke session tokens</li>
     <li><strong>Kill the stack</strong> — in some cases, terminating and redeploying from known-good IaC is fastest</li>
   </ul>
 </section>
 
-<section>
-  <h2>📈 Recover &amp; Learn</h2>
+<section style="font-size:43.2px">
+  <h2>🧪 Forensics, Recovery &amp; Lessons Learned</h2>
   <ul>
+    <li><strong>Preserve before you touch</strong> — snapshot EBS, export logs, tag the evidence; store it in a separate read-only account with Object Lock</li>
+    <li>Don't power off a live instance before capturing memory if relevant; bring legal &amp; compliance in before anything leaves AWS</li>
     <li><strong>Recover</strong> — redeploy from clean IaC, restore from tested backups, validate data integrity, monitor closely</li>
-    <li><strong>Post-incident review</strong> — blameless, within 5 business days</li>
-    <li>Feed findings back into: detections, runbooks, SCPs, training, architecture</li>
+    <li><strong>Post-incident review</strong> — blameless, within 5 business days; feed findings into detections, runbooks, SCPs, training</li>
     <li>Track <strong>time-to-detect</strong> and <strong>time-to-contain</strong> — these are the numbers that matter</li>
   </ul>
 </section>
 
-<section>
-  <h2>🧪 Forensic Hygiene</h2>
+<section style="font-size:38.4px">
+  <h2>🧪 Tools You'll Use in Lab 6</h2>
   <ul>
-    <li><strong>Preserve before you touch</strong> — snapshot EBS volumes, export logs, tag the evidence</li>
-    <li>Store evidence in a separate, read-only account with Object Lock</li>
-    <li>Don't power off a live instance before capturing memory if relevant</li>
-    <li>Legal &amp; compliance usually need to be in the loop before anything leaves AWS</li>
+    <li><strong>GuardDuty finding types</strong> read as <em>ThreatPurpose:ResourceType/ThreatName</em>; <em>sample findings</em> are titled <code>[SAMPLE]</code> with placeholder values</li>
+    <li><strong>CloudTrail Event history</strong> — look up by user, resource, or access key; events typically arrive within ~5 minutes. <strong>CloudTrail Lake</strong> = SQL queries over long retention</li>
+    <li><strong>AWSDenyAll</strong> — AWS managed policy that denies every action; attach it to contain a user</li>
+    <li>Exposed access key found publicly → AWS sends an <strong>AWS Health</strong> notice and attaches <strong>AWSCompromisedKeyQuarantineV3</strong>, which denies many — not all — high-risk actions</li>
+    <li><strong>Revoke active sessions</strong> on a role — invalidates temporary credentials issued before now</li>
   </ul>
 </section>
 
-<section data-background-color="#FF9900">
-  <span class="lab-tag">Hands-On Lab · 30 min</span>
-  <h2>Lab 5 — Incident Response Tabletop</h2>
+<section data-background-color="#FF9900" style="font-size:43.2px">
+  <span class="lab-tag">Hands-On Lab · 45 min</span>
+  <h2>Lab 6 — Incident Response Tabletop</h2>
   <ul>
-    <li>A GuardDuty finding lands on your desk</li>
-    <li>Triage the scenario and list your first five actions</li>
-    <li>Identify the AWS services you'd touch and in what order</li>
+    <li>Investigate the instructor-generated GuardDuty sample findings — two real finding types</li>
+    <li>Contain a stolen role session with <em>Revoke active sessions</em> and build a quarantine SG</li>
+    <li>Contain a compromised IAM user and trace your actions in CloudTrail</li>
+    <li>Read AWS's compromised-key quarantine policy and find what a leaked key can still do</li>
   </ul>
-  <p class="small"><code>labs/lab5-incident-response.html</code></p>
+  <p class="small"><code>labs/lab6-incident-response.html</code></p>
 </section>
 
 </div></div>

@@ -44,12 +44,19 @@
   <p class="small" style="color:#fff">Module 1 — Security on AWS</p>
 </section>
 
-<section>
+<section style="font-size:40px">
   <h2>🎯 Objective</h2>
-  <p>For three realistic workloads, decide which side of the AWS Shared Responsibility line each security control sits on. Identify the controls that are <em>genuinely shared</em> — where both AWS and the customer play a part.</p>
+  <p>Gather <strong>real evidence</strong> in the AWS console of where the Shared Responsibility line sits for three services — S3, Lambda, and EC2 — then use that evidence to fill in a responsibility matrix for three realistic workloads.</p>
+  <ul>
+    <li>Part 1 — S3: what AWS turns on for you, and what stays yours</li>
+    <li>Part 2 — Lambda: who patches the runtime, who owns the permissions</li>
+    <li>Part 3 — EC2: walk the launch wizard (no launch) and count your decisions</li>
+    <li>Part 4 — Fill in the matrix for three workloads</li>
+  </ul>
+  <p class="small">👥 <strong>Shared class account:</strong> everyone works in the same AWS account. Start every resource name with your student ID, and only open, change, or delete resources that start with <em>your</em> ID.</p>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>📚 Terms You'll See</h2>
   <ul class="glossary">
     <li><strong>Shared Responsibility Model</strong> — AWS secures the cloud; you secure what's in it</li>
@@ -58,12 +65,174 @@
     <li><strong>RDS</strong> — managed database — AWS owns the engine, you own schema &amp; access</li>
     <li><strong>S3</strong> — object storage — AWS runs it, you own access &amp; data choices</li>
     <li><strong>Lambda</strong> — run code without servers; AWS patches the runtime</li>
-    <li><strong>KMS</strong> — AWS encryption-key service; you choose managed vs. customer-managed keys</li>
+    <li><strong>KMS</strong> — AWS encryption-key service; you choose AWS managed vs. customer managed keys</li>
+    <li><strong>SSE-S3</strong> — server-side encryption with keys S3 manages for you</li>
+    <li><strong>Block Public Access (BPA)</strong> — S3 guardrail that overrides public ACLs and policies</li>
+    <li><strong>Execution role</strong> — the IAM role a Lambda function assumes when it runs</li>
+    <li><strong>IMDSv2</strong> — token-based EC2 instance metadata service (hardened against SSRF)</li>
   </ul>
 </section>
 
+<section style="font-size:40px">
+  <h2>⚙️ Before You Start</h2>
+  <ol>
+    <li>Sign in to the class AWS account with your student credentials</li>
+    <li>In the region selector (top right) choose <strong>US East (N. Virginia) us-east-1</strong> — use it for the whole lab</li>
+    <li>Open the account menu (top right) and copy your 12-digit <strong>Account ID</strong></li>
+    <li>Use the student ID your instructor assigned you (lowercase, e.g. <code>stu07</code>) — every resource you create starts with <code>&lt;student-id&gt;-lab1-</code></li>
+    <li>Keep a notepad open — record each piece of evidence as <strong>AWS</strong>, <strong>Customer</strong>, or <strong>Shared</strong></li>
+  </ol>
+  <p class="small">You will create one S3 bucket and one Lambda function (both free-tier friendly) and delete them at the end. You will <strong>not</strong> launch an EC2 instance.</p>
+</section>
+
+<section style="font-size:38.4px">
+  <h2>📦 Part 1 — Create an S3 Bucket</h2>
+  <ol>
+    <li>Open <strong>S3</strong> → <em>Buckets</em> → <em>Create bucket</em></li>
+    <li>Bucket type: <em>General purpose</em> · Bucket namespace: keep <em>Global namespace</em></li>
+    <li>Bucket name: <code>&lt;student-id&gt;-lab1-&lt;account-id&gt;</code> (e.g. <code>stu07-lab1-123456789012</code>)</li>
+    <li><strong>Leave every other setting at its default</strong> — do not touch encryption or Block Public Access</li>
+    <li>Choose <em>Create bucket</em></li>
+    <li>Open the new bucket → <em>Upload</em> → <em>Add files</em> → pick any small text file → <em>Upload</em></li>
+  </ol>
+  <p>✅ <strong>Check:</strong> the bucket appears in the list and the object shows in the <em>Objects</em> tab.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🔍 Part 1 — What Did AWS Turn On for You?</h2>
+  <ol>
+    <li>Bucket → <em>Properties</em> tab → <em>Default encryption</em> panel</li>
+    <li>Click your uploaded object → <em>Properties</em> → <em>Server-side encryption settings</em></li>
+    <li>Bucket → <em>Permissions</em> tab → <em>Block public access (bucket settings)</em></li>
+    <li>Same tab → <em>Object Ownership</em></li>
+  </ol>
+  <p>✅ <strong>Check:</strong></p>
+  <ul class="small">
+    <li>Default encryption: <strong>Server-side encryption with Amazon S3 managed keys (SSE-S3)</strong> — and the object is encrypted with it</li>
+    <li>Block <em>all</em> public access: <strong>On</strong> (all four settings)</li>
+    <li>Object Ownership: <strong>Bucket owner enforced</strong> (ACLs disabled)</li>
+  </ul>
+</section>
+
+<section style="font-size:41.6px">
+  <h2>🚫 Part 1 — Try to Make It Public</h2>
+  <ol>
+    <li><em>Permissions</em> tab → <em>Bucket policy</em> → <em>Edit</em></li>
+    <li>Paste the policy below, replacing the bucket name with yours</li>
+    <li>Choose <em>Save changes</em></li>
+  </ol>
+<pre><code class="language-json" data-trim style="font-size:21.25px;max-height:none">
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": "*",
+    "Action": "s3:GetObject",
+    "Resource": "arn:aws:s3:::&lt;student-id&gt;-lab1-&lt;account-id&gt;/*"
+  }]
+}
+</code></pre>
+  <p>✅ <strong>Check:</strong> the save <strong>fails</strong> with an access-denied error saying the public policy conflicts with Block Public Access. Choose <em>Cancel</em>.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🧾 Part 1 — Record Your Evidence</h2>
+  <ul>
+    <li>Encrypting the disks and the data at rest — <strong>AWS does it by default</strong> (SSE-S3)</li>
+    <li>Choosing a <em>different</em> key (SSE-KMS, your own KMS key) — <strong>Customer</strong></li>
+    <li>Safe defaults (BPA on, ACLs off) — AWS sets them…</li>
+    <li>…but you can turn BPA off and write any bucket policy — access is <strong>Customer</strong></li>
+  </ul>
+  <p class="small">Every "S3 bucket leak" headline is a customer-side configuration change that overrode these defaults.</p>
+</section>
+
+<section style="font-size:38.4px">
+  <h2>⚡ Part 2 — Create a Lambda Function</h2>
+  <ol>
+    <li>Open <strong>Lambda</strong> → <em>Functions</em> → <em>Create function</em></li>
+    <li>Choose <em>Author from scratch</em></li>
+    <li>Function name: <code>&lt;student-id&gt;-lab1-fn</code></li>
+    <li>Runtime: change the default (Node.js) to the newest <strong>Python 3.x</strong> in the list</li>
+    <li>Leave <em>Additional settings</em> as is — <em>ARM64 architecture</em> and <em>Custom execution role</em> stay off, so you get x86_64 and a new role with basic Lambda permissions</li>
+    <li>Choose <em>Create function</em></li>
+  </ol>
+  <p>✅ <strong>Check:</strong> a green banner confirms the function was created, and the <em>Code</em> tab shows a <code>lambda_function.py</code> that returns <code>'Hello from Lambda!'</code>.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>▶️ Part 2 — Run It and Inspect the Runtime</h2>
+  <ol>
+    <li><em>Test</em> tab → <em>Create new event</em> · Event name <code>lab1-test</code> · Template <em>Hello World</em> → <em>Save</em></li>
+    <li>Choose <em>Test</em> to invoke the function</li>
+    <li>On the <em>Code</em> tab, scroll to <em>Runtime settings</em></li>
+    <li>Choose <em>Edit runtime management configuration</em> — read it, then <em>Cancel</em></li>
+  </ol>
+  <p>✅ <strong>Check:</strong></p>
+  <ul class="small">
+    <li>Execution result <strong>Succeeded</strong>; response <code>{"statusCode": 200, "body": "\"Hello from Lambda!\""}</code></li>
+    <li>Runtime update mode is <strong>Auto</strong> — AWS rolls new runtime and OS patches onto your function automatically</li>
+  </ul>
+</section>
+
+<section style="font-size:40px">
+  <h2>🔐 Part 2 — Who Owns the Permissions and Logs?</h2>
+  <ol>
+    <li><em>Configuration</em> tab → <em>Permissions</em> → note the <em>Execution role</em> name (<code>&lt;student-id&gt;-lab1-fn-role-xxxxxxxx</code>)</li>
+    <li>Click the role name — it opens in IAM. Expand its policy: it only allows CloudWatch Logs actions</li>
+    <li>Back in Lambda: <em>Monitor</em> tab → <em>View CloudWatch logs</em></li>
+    <li>In CloudWatch, open <em>Log groups</em> and find <code>/aws/lambda/&lt;student-id&gt;-lab1-fn</code> — note the <em>Retention</em> column</li>
+  </ol>
+  <p>✅ <strong>Check:</strong> retention shows <strong>Never expire</strong>. Nobody at AWS will set that for you.</p>
+  <p class="small">Evidence: runtime patching = <strong>AWS</strong> · code, execution role, log retention = <strong>Customer</strong></p>
+</section>
+
 <section>
-  <h2>🖥️ Scenario 1 — Company Website on EC2</h2>
+  <h2>🖥️ Part 3 — Walk the EC2 Launch Wizard (No Launch!)</h2>
+  <p class="small">You will <strong>not</strong> launch an instance. You are counting the security decisions EC2 hands to you.</p>
+  <ol>
+    <li>Open <strong>EC2</strong> → <em>Instances</em> → <em>Launch instances</em></li>
+    <li>Name: <code>&lt;student-id&gt;-lab1-wizard</code></li>
+    <li><em>Application and OS Images</em>: note the default <strong>Amazon Linux 2023</strong> AMI — that guest OS is yours to patch</li>
+    <li><em>Key pair (login)</em>: open the drop-down — note you would create and protect the SSH key. <strong>Do not create one</strong></li>
+    <li><em>Network settings</em>: <em>Network</em> shows <strong>–</strong>; choose <em>Edit</em> — <em>VPC - required</em> has nothing preselected because there is <strong>no default VPC</strong> (AWS normally creates one in every Region; the class account's was removed). Note the proposed <em>launch-wizard</em> security group allows <strong>SSH from Anywhere (0.0.0.0/0)</strong> by default</li>
+  </ol>
+  <p>✅ <strong>Check:</strong> no VPC is preselected (any VPCs in the list were built by classmates, not AWS), and the default SSH-from-anywhere rule is yours to tighten — networking is a customer build.</p>
+</section>
+
+<section style="font-size:40px">
+  <h2>🖥️ Part 3 — Storage, Metadata, then Cancel</h2>
+  <ol>
+    <li><em>Configure storage</em> → <em>Advanced</em> → expand the root volume and look at <em>Encrypted</em></li>
+    <li><em>Advanced details</em> → scroll to <em>Metadata version</em></li>
+    <li>In the <em>Summary</em> panel choose <strong><em>Cancel</em></strong> — do <strong>not</strong> choose <em>Launch instance</em></li>
+    <li>Optional: open <strong>VPC</strong> → <em>Your VPCs</em> in us-east-1 and confirm no VPC shows <em>Default VPC: Yes</em></li>
+  </ol>
+  <p>✅ <strong>Check:</strong></p>
+  <ul class="small">
+    <li>Root volume <em>Encrypted</em>: <strong>Not encrypted</strong> (unless your account enabled EBS encryption by default) — your choice</li>
+    <li>Metadata version: <strong>V2 only (token required)</strong> — the AL2023 AMI defaults to IMDSv2, but you can change it</li>
+    <li>No instance was created — searching <em>Instances</em> for <code>&lt;student-id&gt;-lab1</code> returns nothing</li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📊 Your Evidence So Far</h2>
+  <table>
+    <thead><tr><th>What you saw</th><th>Owner</th></tr></thead>
+    <tbody>
+      <tr><td>S3 encrypts every object at rest by default</td><td>AWS</td></tr>
+      <tr><td>S3 key choice, bucket policy, turning BPA off</td><td>Customer</td></tr>
+      <tr><td>Lambda runtime update mode <em>Auto</em></td><td>AWS</td></tr>
+      <tr><td>Lambda code, execution role, log retention</td><td>Customer</td></tr>
+      <tr><td>EC2 guest OS (AMI), key pair, VPC, volume encryption, IMDS version</td><td>Customer</td></tr>
+      <tr><td>Hardware, hypervisor, and facility under all three</td><td>AWS</td></tr>
+    </tbody>
+  </table>
+  <p class="small">Notice the pattern: the more abstract the service, the more AWS owns — but access and data choices never move to AWS.</p>
+</section>
+
+<section style="font-size:36.8px">
+  <h2>🖥️ Part 4 · Scenario 1 — Company Website on EC2</h2>
   <p class="small">Apache running on two EC2 instances in a VPC, behind an ALB, with an RDS MySQL backend.</p>
   <p>For each control below, pick <strong>AWS</strong>, <strong>Customer</strong>, or <strong>Shared</strong>:</p>
   <table>
@@ -83,8 +252,8 @@
   </table>
 </section>
 
-<section>
-  <h2>⚡ Scenario 2 — Serverless API</h2>
+<section style="font-size:43.2px">
+  <h2>⚡ Part 4 · Scenario 2 — Serverless API</h2>
   <p class="small">API Gateway → Lambda (Python) → DynamoDB. Logs to CloudWatch. JWT auth via Cognito.</p>
   <table>
     <thead><tr><th>Control</th><th>Owner</th></tr></thead>
@@ -102,8 +271,8 @@
   </table>
 </section>
 
-<section>
-  <h2>📦 Scenario 3 — S3 Static Site + CloudFront</h2>
+<section style="font-size:43.2px">
+  <h2>📦 Part 4 · Scenario 3 — S3 Static Site + CloudFront</h2>
   <p class="small">Marketing site: HTML/JS assets in S3, served by CloudFront. Route 53 for DNS.</p>
   <table>
     <thead><tr><th>Control</th><th>Owner</th></tr></thead>
@@ -118,30 +287,71 @@
   </table>
 </section>
 
-<section>
-  <h2>🗝️ Answer Key (Discussion)</h2>
-  <p class="small">Quick-reference — your instructor will walk through the reasoning.</p>
-  <ul class="glossary">
-    <li><strong>AWS</strong> — physical DC, hypervisor, network fabric, storage media sanitization, managed-service engine patching (RDS, Lambda runtime, DynamoDB), edge TLS infrastructure</li>
-    <li><strong>Customer</strong> — guest OS, app code &amp; config, IAM policies, SG rules, bucket/ key policies, log retention, app users, TLS certs you own, responding to findings</li>
-    <li><strong>Shared</strong> — patching (AWS patches infra, you patch guest OS), configuration management, IR (AWS detects infra events, you handle workload events), awareness &amp; training</li>
+<section style="font-size:40px">
+  <h2>🗝️ Answer Key — Scenario 1</h2>
+  <table>
+    <thead><tr><th>Control</th><th>Owner</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Physical DC access</td><td>AWS</td><td>Security <em>of</em> the cloud</td></tr>
+      <tr><td>Hypervisor patching</td><td>AWS</td><td>Host &amp; Nitro layer</td></tr>
+      <tr><td>Guest OS patching</td><td>Customer</td><td>You picked the AMI in Part 3</td></tr>
+      <tr><td>Apache version &amp; config</td><td>Customer</td><td>Your application</td></tr>
+      <tr><td>Security-group rules</td><td>Customer</td><td>Your network config</td></tr>
+      <tr><td>ALB TLS certificate</td><td>Customer</td><td>You request/import and attach it (ACM can auto-renew)</td></tr>
+      <tr><td>IAM role on EC2</td><td>Customer</td><td>Like the Lambda execution role</td></tr>
+      <tr><td>Fabric encryption between AZs</td><td>AWS</td><td>Automatic on the AWS network</td></tr>
+      <tr><td>RDS engine patching</td><td>AWS*</td><td>*You pick the maintenance window and approve major upgrades</td></tr>
+      <tr><td>RDS parameter group &amp; users</td><td>Customer</td><td>DB config and access</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section style="font-size:38.4px">
+  <h2>🗝️ Answer Key — Scenarios 2 &amp; 3</h2>
+  <table>
+    <thead><tr><th>Control</th><th>Owner</th><th>Control</th><th>Owner</th></tr></thead>
+    <tbody>
+      <tr><td>Lambda runtime &amp; OS patches</td><td>AWS</td><td>S3 media sanitization</td><td>AWS</td></tr>
+      <tr><td>Lambda application code</td><td>Customer</td><td>Bucket policy &amp; BPA</td><td>Customer</td></tr>
+      <tr><td>Execution-role permissions</td><td>Customer</td><td>CloudFront TLS infrastructure</td><td>AWS</td></tr>
+      <tr><td>API Gateway authorizer</td><td>Customer</td><td>WAF rules</td><td>Customer</td></tr>
+      <tr><td>DynamoDB encryption at rest</td><td>AWS (always on)</td><td>Access logging config</td><td>Customer</td></tr>
+      <tr><td>KMS key choice for the table</td><td>Customer</td><td>Responding to a GuardDuty finding</td><td>Customer*</td></tr>
+      <tr><td>CloudWatch Logs retention</td><td>Customer</td><td colspan="2" rowspan="3" class="small">*AWS runs the detection; you investigate and respond — incident response is a <strong>shared</strong> control overall</td></tr>
+      <tr><td>Cognito password policy</td><td>Customer</td></tr>
+      <tr><td>Deleting users on termination</td><td>Customer</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🔗 Answer Key — What "Shared" Means</h2>
+  <ul>
+    <li><strong>AWS</strong> — physical DC, hypervisor, network fabric, storage media, managed-service engine patching (RDS, Lambda runtime, DynamoDB), edge TLS infrastructure</li>
+    <li><strong>Customer</strong> — guest OS, app code &amp; config, IAM policies, SG rules, bucket/key policies, log retention, app users, TLS certs you own, responding to findings</li>
+    <li><strong>Shared</strong> — patching (AWS patches infra, you patch guest OS), configuration management, incident response (AWS detects infra events, you handle workload events), awareness &amp; training</li>
   </ul>
 </section>
 
-<section>
-  <h2>🔍 Console Exploration (read-only)</h2>
-  <p class="small">Navigate to these in the AWS Console. <strong>Do not create, edit, or save anything.</strong></p>
+<section style="font-size:33.6px">
+  <h2>🧹 Cleanup</h2>
   <ol>
-    <li>Search for <strong>AWS Artifact</strong> → <em>Reports</em> tab. Browse (don't download) the available SOC, ISO, PCI reports</li>
-    <li>Open the <strong>AWS Health</strong> dashboard (<em>Personal Health Dashboard</em>) — the evidence AWS publishes about its side of the line</li>
-    <li>Open an EC2 instance's <em>Details</em> tab and note which fields are "yours" (Name, IAM role, SGs) vs. AWS's (Hypervisor, Nitro)</li>
+    <li><strong>Lambda</strong> → <em>Functions</em> → select <code>&lt;student-id&gt;-lab1-fn</code> → <em>Actions</em> → <em>Delete function</em> → type <code>confirm</code> → <em>Delete</em></li>
+    <li><strong>IAM</strong> → <em>Roles</em> → open <code>&lt;student-id&gt;-lab1-fn-role-…</code> → <em>Permissions</em> tab: note the attached policy name (<code>AWSLambdaBasicExecutionRole-…</code>)</li>
+    <li>Back in <em>Roles</em>, select the role → <em>Delete</em> → type the role name → <em>Delete</em>; if the noted policy is customer managed, delete it too (<em>Policies</em> → select <strong>that exact name</strong> → <em>Delete</em>)</li>
+    <li><strong>CloudWatch</strong> → <em>Log groups</em> → select <code>/aws/lambda/&lt;student-id&gt;-lab1-fn</code> → <em>Actions</em> → <em>Delete log group(s)</em> → <em>Delete</em></li>
+    <li><strong>S3</strong> → <em>Buckets</em> → select your bucket → <em>Empty</em> → type <code>permanently delete</code> → <em>Empty</em></li>
+    <li>Select the bucket again → <em>Delete</em> → type the bucket name → <em>Delete bucket</em></li>
+    <li><strong>EC2</strong> → <em>Instances</em> — search <code>&lt;student-id&gt;-lab1</code> and confirm nothing was launched</li>
   </ol>
+  <p>✅ <strong>Check:</strong> searching each console for <code>&lt;student-id&gt;-lab1</code> returns no results.</p>
 </section>
 
-<section data-background-color="#146EB4">
+<section data-background-color="#146EB4" style="font-size:43.2px">
   <h2>💬 Discussion</h2>
   <ul>
-    <li>Which rows surprised the class?</li>
+    <li>Which rows surprised you?</li>
+    <li>S3 encrypted your object without being asked — does that mean "encryption" is AWS's responsibility? What part is still yours?</li>
     <li>For the rows labeled <em>Shared</em> — what does "shared" actually mean in practice for your org?</li>
     <li>If an S3 bucket gets exposed, which side of the line is that on — and why does the headline always read "AWS breach"?</li>
   </ul>

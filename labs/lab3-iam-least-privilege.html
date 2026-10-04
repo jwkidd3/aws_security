@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 3 — IAM Least Privilege Review</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
+  .reveal { font-size: 32px; }
+  .reveal h1 { font-size: 1.8em; }
+  .reveal h2 { font-size: 1.2em; }
+  .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul, .reveal ol { line-height: 1.35; }
+  .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
+  .reveal pre code { padding:12px; font-size:0.55em; line-height:1.3; }
+  .reveal .small { font-size: 0.72em; color:#555; }
+  .reveal .glossary li { font-size: 0.72em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h1,
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] h3,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.55em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
+  .reveal table { font-size: 0.62em; border-collapse: collapse; width: 100%; }
+  .reveal th, .reveal td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; vertical-align: top; }
+  .reveal th { background: #f4f4f4; color: var(--aws-navy); }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide" data-background-color="#FF9900">
+  <span class="lab-tag">Hands-On Lab · 40 min</span>
+  <h1>Lab 3</h1>
+  <h3 style="color:#fff">IAM Least Privilege Review</h3>
+  <p class="small" style="color:#fff">Module 3 — Security IN the Cloud · Part 1</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🎯 Objective</h2>
+  <p>Build an over-permissive application role in the class account, prove how dangerous it is with the IAM Policy Simulator, then replace its policy with a least-privilege version and prove the app can still do its job — and nothing else. Finally, review an S3 bucket policy for the same workload.</p>
+  <p class="small"><em>Least privilege</em> = grant only the permissions actually needed. Everything in this lab is done in the AWS web console.</p>
+  <p class="small">👥 <strong>Shared class account:</strong> everyone works in the same AWS account. Start every resource name with your student ID, and only open, change, or delete resources that start with <em>your</em> ID.</p>
+</section>
+
+<section style="font-size:41.6px">
+  <h2>📚 Terms You'll See</h2>
+  <ul class="glossary">
+    <li><strong>IAM policy</strong> — JSON document listing allowed/denied actions on resources; a <em>customer managed policy</em> is one you create and can attach to many identities</li>
+    <li><strong>IAM role</strong> — identity a workload assumes (no long-lived credentials)</li>
+    <li><strong>ARN</strong> — globally-unique ID for an AWS resource, e.g., <code>arn:aws:s3:::my-bucket</code></li>
+    <li><strong>IAM Policy Simulator</strong> — console tool that evaluates a policy against API actions and shows allowed/denied</li>
+    <li><strong>Implicit deny</strong> — no statement allows the action · <strong>Explicit deny</strong> — a <code>Deny</code> statement matched (always wins)</li>
+    <li><strong>Policy validation</strong> — IAM Access Analyzer checks run as you edit a policy (security warnings, errors, suggestions)</li>
+    <li><strong>S3 Block Public Access</strong> — bucket/account switches that reject public bucket policies and ACLs</li>
+    <li><strong>SQS</strong> — message queue · <strong>DynamoDB</strong> — NoSQL table · <strong>CloudWatch Logs</strong> — log groups and streams</li>
+    <li><strong>PassRole</strong> — permission to hand a role to a service (a classic privilege-escalation hole when broad)</li>
+  </ul>
+</section>
+
+<section style="font-size:41.6px">
+  <h2>📋 Scenario — <code>&lt;student-id&gt;-app-orders-processor</code></h2>
+  <p class="small">You're reviewing the IAM role attached to an app that processes customer orders. It runs on EC2 in the <strong>class</strong> account, region <code>us-east-1</code>, and needs only to:</p>
+  <ul>
+    <li>Read order events from one SQS queue: <code>&lt;student-id&gt;-orders-incoming</code></li>
+    <li>Write to one DynamoDB table: <code>&lt;student-id&gt;-orders</code></li>
+    <li>Write logs to its own CloudWatch log group: <code>&lt;student-id&gt;-orders-app-logs</code></li>
+  </ul>
+  <p class="small">You won't create the queue, table, or log group — the Policy Simulator only needs their ARNs. Find your 12-digit <strong>account ID</strong> in the account menu (top right of the console) and note it; you'll paste it into ARNs throughout the lab.</p>
+</section>
+
+<section>
+  <h2>📜 The Current Policy</h2>
+  <pre><code style="font-size:20.5px;max-height:none">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AppAccess",
+      "Effect": "Allow",
+      "Action": "*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ExtraStuff",
+      "Effect": "Allow",
+      "Action": [
+        "s3:*", "iam:PassRole",
+        "dynamodb:*", "sqs:*", "logs:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}</code></pre>
+  <p class="small"><code>"*"</code> in <strong>Action</strong> means "every possible action." <code>"*"</code> in <strong>Resource</strong> means "every resource ARN" — any region, and other accounts' resources too wherever their resource policies allow it.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✏️ Task 1 — Spot the Violations (3 min)</h2>
+  <p class="small">Before touching the console, list <strong>at least 4 violations</strong> in the current policy. Consider:</p>
+  <ul>
+    <li>Action wildcards and resource wildcards</li>
+    <li>Privileges the workload doesn't need at all</li>
+    <li>Privilege-escalation risks (like <code>iam:PassRole</code>)</li>
+    <li>Cross-region or cross-account exposure</li>
+    <li>Redundant or misleading statements</li>
+  </ul>
+  <p class="small">Keep your list — you'll check it against what the policy validator and the Policy Simulator show you next.</p>
+</section>
+
+<section style="font-size:40px">
+  <h2>🛠️ Step 1 — Create the Broad Policy</h2>
+  <ol>
+    <li>Sign in to the class AWS account and set the region selector to <strong>US East (N. Virginia) us-east-1</strong></li>
+    <li>Open <strong>IAM</strong> → <em>Policies</em> → <em>Create policy</em></li>
+    <li>In the <em>Policy editor</em>, switch from <em>Visual</em> to <em>JSON</em></li>
+    <li>Delete the starter text and paste the <strong>Current Policy</strong> from the previous slide</li>
+    <li>Look at the policy-validation panel below the editor (<em>Security</em>, <em>Errors</em>, <em>Warnings</em>, <em>Suggestions</em>) and read each finding</li>
+    <li>Choose <em>Next</em>, name it <code>&lt;student-id&gt;-orders-broad</code>, then <em>Create policy</em></li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> the validator reports <strong>2 security warnings</strong> and <strong>1 warning</strong>, and the policy still saves — validation warns, it doesn't block.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🔎 What the Validator Found</h2>
+  <table>
+    <thead><tr><th>Type</th><th>Finding</th><th>Points at</th></tr></thead>
+    <tbody>
+      <tr><td>Security warning</td><td><strong>PassRole with star in action and resource</strong> — <code>"*"</code> allows <code>iam:PassRole</code> on all roles</td><td><code>AppAccess</code></td></tr>
+      <tr><td>Security warning</td><td><strong>PassRole with star in resource</strong> — <code>iam:PassRole</code> on <code>"*"</code>; specify role ARNs or add <code>iam:PassedToService</code></td><td><code>ExtraStuff</code></td></tr>
+      <tr><td>Warning</td><td><strong>Create SLR with star in action and resource</strong> — allows <code>iam:CreateServiceLinkedRole</code> on all resources</td><td><code>AppAccess</code></td></tr>
+    </tbody>
+  </table>
+  <p class="small">Notice what the validator does <em>not</em> say: it never asks whether an order-processing app needs <code>"*"</code> at all. Validation catches known-dangerous patterns; <strong>least privilege still needs a human review</strong>.</p>
+</section>
+
+<section style="font-size:41.6px">
+  <h2>🛠️ Step 2 — Create the App Role</h2>
+  <ol>
+    <li><strong>IAM</strong> → <em>Roles</em> → <em>Create role</em></li>
+    <li><em>Trusted entity type</em>: <em>AWS service</em> · <em>Service or use case</em>: <em>EC2</em> · use case <em>EC2</em> → <em>Next</em></li>
+    <li>Search for <code>&lt;student-id&gt;-orders-broad</code>, tick it → <em>Next</em></li>
+    <li><em>Role name</em>: <code>&lt;student-id&gt;-app-orders-processor</code> → <em>Create role</em></li>
+    <li>Open the new role and confirm the <em>Permissions</em> tab lists <code>&lt;student-id&gt;-orders-broad</code></li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> the role's <em>Trust relationships</em> tab shows <code>"Service": "ec2.amazonaws.com"</code> — only EC2 can assume this role. Nobody runs an instance with it in this lab; the Policy Simulator evaluates it directly.</p>
+</section>
+
+<section style="font-size:38.4px">
+  <h2>🛠️ Step 3 — Prove the Damage in the Policy Simulator</h2>
+  <ol>
+    <li><strong>IAM</strong> → navigation pane → <em>Policy simulator</em> (keep <em>Principal</em> mode; the legacy simulator at <code>policysim.aws.amazon.com</code> is being retired)</li>
+    <li>Under <em>Identities</em> choose <em>Add identity</em> → filter by entity type <em>Role</em> → tick <code>&lt;student-id&gt;-app-orders-processor</code> → <em>Add identities</em>; <em>Identity-based policies</em> lists <code>&lt;student-id&gt;-orders-broad</code></li>
+    <li><em>Add actions</em>: <strong>IAM</strong> → <code>CreateUser</code>, <code>PassRole</code> · <strong>S3</strong> → <code>DeleteBucket</code> · <strong>EC2</strong> → <code>RunInstances</code></li>
+    <li>Leave every <em>Resource</em> as <code>*</code> → <em>Simulate</em></li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> every row shows <strong>Allowed</strong> (<code>RunInstances</code> expands into 5 resource rows) with <em>Explicit allow</em> in <code>&lt;student-id&gt;-orders-broad</code> — 2 statements for <code>PassRole</code> and <code>DeleteBucket</code>, which both statements cover. An order processor that can create IAM users, pass any role, delete buckets, and launch instances is one stolen credential away from a full account takeover.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✅ Task 1 — Sample Answer</h2>
+  <ul class="glossary">
+    <li><code>"Action": "*"</code> + <code>"Resource": "*"</code> is full administrator access — the app needs about nine actions</li>
+    <li><code>iam:PassRole</code> on <code>"*"</code> lets the app hand <em>any</em> role (including admin roles) to a new EC2 instance or Lambda function — privilege escalation</li>
+    <li>IAM write actions (<code>CreateUser</code>, <code>AttachRolePolicy</code>…) let an attacker create persistent backdoor identities</li>
+    <li><code>s3:*</code>, <code>dynamodb:*</code>, <code>sqs:*</code>, <code>logs:*</code> include destructive actions (<code>DeleteBucket</code>, <code>DeleteTable</code>, <code>PurgeQueue</code>, <code>DeleteLogGroup</code>) on <em>every</em> resource</li>
+    <li>No region restriction — stolen credentials can build resources in any region, where nobody is looking</li>
+    <li><code>"Resource": "*"</code> also reaches other accounts' buckets and queues wherever their resource policies are loose</li>
+    <li><code>ExtraStuff</code> is redundant with <code>AppAccess</code>, which hides intent and makes review harder</li>
+  </ul>
+</section>
+
+<section style="font-size:36.8px">
+  <h2>✏️ Task 2 — Write the Least-Privilege Policy</h2>
+  <p class="small">Take 2 minutes: for each requirement, jot down the action names and the resource ARN you'd use, then compare your notes with the sample on the next slide.</p>
+  <ul>
+    <li>DynamoDB: <code>GetItem</code>, <code>PutItem</code>, <code>UpdateItem</code>, <code>BatchWriteItem</code> on table <code>&lt;student-id&gt;-orders</code></li>
+    <li>SQS: <code>ReceiveMessage</code>, <code>DeleteMessage</code>, <code>GetQueueAttributes</code> on queue <code>&lt;student-id&gt;-orders-incoming</code></li>
+    <li>CloudWatch Logs: <code>CreateLogStream</code>, <code>PutLogEvents</code> on log group <code>&lt;student-id&gt;-orders-app-logs</code> (append <code>:*</code> to cover its log streams)</li>
+    <li>Every ARN uses the class account ID and <code>us-east-1</code></li>
+    <li><strong>Bonus:</strong> add <code>Deny</code> statements that block other regions (<code>aws:RequestedRegion</code>) and non-TLS requests (<code>aws:SecureTransport</code>)</li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✅ Task 2 — Sample Solution</h2>
+  <p class="small">Replace <code>ACCOUNT-ID</code> (3 places) and <code>STUDENT-ID</code> (3 places) before you paste it.</p>
+  <pre><code style="font-size:17px;max-height:none">{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Sid": "ReadOrderQueue", "Effect": "Allow",
+      "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+      "Resource": "arn:aws:sqs:us-east-1:ACCOUNT-ID:STUDENT-ID-orders-incoming" },
+    { "Sid": "WriteOrdersTable", "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:BatchWriteItem"],
+      "Resource": "arn:aws:dynamodb:us-east-1:ACCOUNT-ID:table/STUDENT-ID-orders" },
+    { "Sid": "WriteAppLogs", "Effect": "Allow",
+      "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:us-east-1:ACCOUNT-ID:log-group:STUDENT-ID-orders-app-logs:*" },
+    { "Sid": "DenyOutsideUsEast1", "Effect": "Deny", "Action": "*", "Resource": "*",
+      "Condition": { "StringNotEquals": { "aws:RequestedRegion": "us-east-1" } } },
+    { "Sid": "DenyNonTLS", "Effect": "Deny", "Action": "*", "Resource": "*",
+      "Condition": { "Bool": { "aws:SecureTransport": "false" } } }
+  ]
+}</code></pre>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🛠️ Step 4 — Create the Least-Privilege Policy</h2>
+  <ol>
+    <li><strong>IAM</strong> → <em>Policies</em> → <em>Create policy</em> → <em>JSON</em></li>
+    <li>Paste the sample solution (or your own version) with your account ID and student ID filled in</li>
+    <li>Read the policy-validation panel</li>
+    <li><em>Next</em> → name it <code>&lt;student-id&gt;-orders-least</code> → <em>Create policy</em></li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> the validator shows <strong>0</strong> security warnings, errors, warnings, and suggestions. If you see a finding, compare your JSON to the sample — a typo in an ARN or action name is the usual cause.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🛠️ Step 5 — Swap the Policy on the Role</h2>
+  <ol>
+    <li><strong>IAM</strong> → <em>Roles</em> → <code>&lt;student-id&gt;-app-orders-processor</code> → <em>Permissions</em> tab</li>
+    <li>Tick <code>&lt;student-id&gt;-orders-broad</code> → <em>Remove</em> → confirm <em>Remove</em></li>
+    <li><em>Add permissions</em> → <em>Attach policies</em></li>
+    <li>Search for <code>&lt;student-id&gt;-orders-least</code>, tick it → <em>Add permissions</em></li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> the <em>Permissions policies</em> list shows only <code>&lt;student-id&gt;-orders-least</code>. Removing a policy from a role does not delete the policy — <code>&lt;student-id&gt;-orders-broad</code> still exists under <em>Policies</em>.</p>
+</section>
+
+<section>
+  <h2>🛠️ Step 6 — Re-Simulate the App's Actions</h2>
+  <ol>
+    <li>Refresh the Policy simulator and reselect your role so <em>Identity-based policies</em> shows <code>&lt;student-id&gt;-orders-least</code>; choose <em>Remove all</em> to clear the old actions</li>
+    <li>Expand <em>Global request conditions</em> and set <code>aws:RequestedRegion</code> = <code>us-east-1</code> (leave <code>aws:SecureTransport</code> blank)</li>
+    <li><em>Add actions</em>: <strong>SQS</strong> → <code>ReceiveMessage</code>, <code>SendMessage</code> · <strong>DynamoDB</strong> → <code>PutItem</code>, <code>DeleteTable</code> · <strong>CloudWatch Logs</strong> → <code>PutLogEvents</code>, <code>DeleteLogGroup</code></li>
+    <li>Edit each row's <em>Resource</em> (pencil icon) → <em>Simulate</em>:<br>
+      SQS: <code>arn:aws:sqs:us-east-1:ACCOUNT-ID:STUDENT-ID-orders-incoming</code><br>
+      DynamoDB: <code>arn:aws:dynamodb:us-east-1:ACCOUNT-ID:table/STUDENT-ID-orders</code><br>
+      Logs: <code>arn:aws:logs:us-east-1:ACCOUNT-ID:log-group:STUDENT-ID-orders-app-logs:log-stream:i-0abc123</code></li>
+  </ol>
+  <p class="small">Resource left as <code>*</code>? Then even the allowed actions show <strong>denied</strong>. The policy only allows specific ARNs, so the simulator needs one to match.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✅ Check — The App Can Still Do Its Job</h2>
+  <table>
+    <thead><tr><th>Service</th><th>allowed</th><th>denied (implicit — no statement matched)</th></tr></thead>
+    <tbody>
+      <tr><td>SQS</td><td><code>ReceiveMessage</code></td><td><code>SendMessage</code></td></tr>
+      <tr><td>DynamoDB</td><td><code>PutItem</code></td><td><code>DeleteTable</code></td></tr>
+      <tr><td>CloudWatch Logs</td><td><code>PutLogEvents</code></td><td><code>DeleteLogGroup</code></td></tr>
+    </tbody>
+  </table>
+  <ul class="glossary">
+    <li>Allowed actions are matched by the <code>ReadOrderQueue</code>, <code>WriteOrdersTable</code>, or <code>WriteAppLogs</code> statement</li>
+    <li>The policy's other allowed actions (<code>DeleteMessage</code>, <code>GetItem</code>, <code>CreateLogStream</code>…) match the same statements and ARNs</li>
+    <li>The simulator only evaluates conditions for keys you supply. With <code>aws:SecureTransport</code> blank, <code>DenyNonTLS</code> doesn't match, so it can't hide your allowed results</li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🛠️ Step 7 — Prove the Denies</h2>
+  <ol>
+    <li><em>Remove all</em>. Keep <code>aws:RequestedRegion</code> = <code>us-east-1</code>. Add and simulate <strong>IAM</strong> <code>CreateUser</code> + <code>PassRole</code>, <strong>S3</strong> <code>DeleteBucket</code>, and <strong>EC2</strong> <code>RunInstances</code> (resource <code>*</code>)</li>
+    <li>Change <code>aws:RequestedRegion</code> to <code>us-east-2</code>. Add <strong>SQS</strong> <code>ReceiveMessage</code> on your queue ARN → <em>Simulate</em></li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> (1) all four are <strong>Denied</strong> — <em>Implicit deny due to no statement(s) matching</em>. (2) <code>ReceiveMessage</code> is <strong>denied</strong> by <code>DenyOutsideUsEast1</code> even though the allow statement matches — explicit deny wins. The four rows from (1) now also show an explicit deny from <code>DenyOutsideUsEast1</code>.</p>
+</section>
+
+<section>
+  <h2>📎 Task 3 — Review a Bucket Policy</h2>
+  <p class="small">The app now needs to <em>read</em> invoice PDFs from an S3 bucket. A developer wrote this bucket policy. Account <code>444455556666</code> is a billing partner that uploads invoices; nobody else should have access. Take 2 minutes and list at least three problems.</p>
+  <pre><code style="font-size:20.5px;max-height:none">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AppRead",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": ["arn:aws:s3:::BUCKET-NAME",
+                   "arn:aws:s3:::BUCKET-NAME/*"]
+    },
+    {
+      "Sid": "PartnerUpload",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::444455556666:root" },
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::BUCKET-NAME/*"
+    }
+  ]
+}</code></pre>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✅ Task 3 — Sample Answer</h2>
+  <ul class="glossary">
+    <li><code>"Principal": "*"</code> with <code>s3:*</code> makes the bucket readable, writable, and deletable by anyone on the internet. S3 Block Public Access (on by default for new buckets) rejects a public policy like this</li>
+    <li><code>s3:*</code> includes <code>s3:PutBucketPolicy</code> and <code>s3:DeleteBucketPolicy</code> — anyone could rewrite or remove the policy itself</li>
+    <li>The app only needs <code>s3:GetObject</code>, and only for objects — not bucket-level actions</li>
+    <li>The partner statement trusts the <em>whole</em> partner account. Scope it to the partner's upload role and an <code>invoices/</code> prefix</li>
+    <li>No TLS requirement — requests over plain HTTP aren't denied</li>
+    <li>Principals must be real: a typo'd or deleted role ARN makes the whole policy unsaveable</li>
+  </ul>
+</section>
+
+<section>
+  <h2>⭐ Extra — If You Finish Early</h2>
+  <p class="small">Uses the role and policies you already built; do these before Cleanup. In the Policy simulator (role still selected, <em>Remove all</em> first):</p>
+  <ol>
+    <li>Set <code>aws:RequestedRegion</code> = <code>us-east-1</code> and <code>aws:SecureTransport</code> = <code>false</code>. Add <strong>DynamoDB</strong> <code>PutItem</code> on your table ARN → <em>Simulate</em></li>
+    <li>Clear <code>aws:SecureTransport</code>. Edit the <code>PutItem</code> resource to <code>arn:aws:dynamodb:us-east-1:ACCOUNT-ID:table/customers</code> → <em>Simulate</em>, then <em>Clear conditions</em></li>
+    <li><strong>S3</strong> → <em>Create bucket</em> → <em>General purpose</em>, <em>Global namespace</em>, name <code>&lt;student-id&gt;-orders-invoices-&lt;account-id&gt;</code>, leave <em>Block all public access</em> checked → <em>Create bucket</em></li>
+    <li>Bucket → <em>Permissions</em> → <em>Bucket policy</em> → <em>Edit</em>. Paste the Task 3 policy <strong>without</strong> the <code>PartnerUpload</code> statement, replace <code>BUCKET-NAME</code> (2 places) → <em>Save changes</em> → read the error → <em>Cancel</em></li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> (1) <strong>Denied</strong> by <code>DenyNonTLS</code>. (2) <strong>Denied</strong>, implicit — the ARN doesn't match. (4) Save fails with access denied; the API message ends <em>"…because public policies are prevented by the BlockPublicPolicy setting in S3 Block Public Access"</em> (console wording may differ). No policy is saved.</p>
+</section>
+
+<section style="font-size:41.6px">
+  <h2>🧹 Cleanup</h2>
+  <ol>
+    <li><strong>IAM</strong> → <em>Roles</em> → tick <code>&lt;student-id&gt;-app-orders-processor</code> → <em>Delete</em> → confirm</li>
+    <li><strong>IAM</strong> → <em>Policies</em> → filter to <em>Customer managed</em> → select <code>&lt;student-id&gt;-orders-broad</code> → <em>Actions</em> → <em>Delete</em> → confirm</li>
+    <li>Repeat for <code>&lt;student-id&gt;-orders-least</code></li>
+    <li><em>(if you did the Extra)</em> <strong>S3</strong> → <em>Buckets</em> → select <code>&lt;student-id&gt;-orders-invoices-&lt;account-id&gt;</code> → <em>Delete</em> → type the bucket name → <em>Delete bucket</em></li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> searching <em>Roles</em> and <em>Policies</em> for your student ID returns nothing, and no bucket starting with your student ID is in the S3 list. Deleting the EC2 role in the console also removes its instance profile.</p>
+</section>
+
+<section data-background-color="#146EB4" style="font-size:40px">
+  <h2>💬 Discussion</h2>
+  <ul>
+    <li>The validator flagged PassRole but not "this app doesn't need admin." How would you catch the original policy <em>before</em> it reaches production?<br>
+      <span class="small" style="color:#cce">CI policy lint (e.g., <code>cfn-guard</code>, <code>cdk-nag</code>, <code>checkov</code>) · Access Analyzer policy validation and custom policy checks · peer review · SCPs</span></li>
+    <li>Which AWS features enforce least privilege at scale?<br>
+      <span class="small" style="color:#cce">SCPs · permission boundaries · IAM Access Analyzer (unused access, policy generation) · last-accessed information · Config rules</span></li>
+    <li>The simulator skipped <code>DenyNonTLS</code> while <code>aws:SecureTransport</code> was blank. What does that tell you about testing condition-based policies?</li>
+    <li>When is a broad policy genuinely justified — and how would you prove it?</li>
+  </ul>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>

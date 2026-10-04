@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 6 — Incident Response Tabletop</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
+  .reveal { font-size: 32px; }
+  .reveal h1 { font-size: 1.8em; }
+  .reveal h2 { font-size: 1.2em; }
+  .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul, .reveal ol { line-height: 1.35; }
+  .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
+  .reveal pre code { padding:12px; font-size:0.55em; line-height:1.3; }
+  .reveal .small { font-size: 0.72em; color:#555; }
+  .reveal .glossary li { font-size: 0.72em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h1,
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] h3,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.55em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
+  .reveal .check { background:#eef8ee; border-left:6px solid #2e7d32; padding:8px 14px; font-size:0.66em; margin-top:10px; }
+  .reveal .warn { background:#fff6e5; border-left:6px solid var(--aws-orange); padding:8px 14px; font-size:0.66em; margin-top:10px; }
+  .reveal ol.steps li, .reveal ul.tight li { font-size:0.74em; margin-bottom:3px; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide" data-background-color="#FF9900">
+  <span class="lab-tag">Hands-On Lab · 45 min</span>
+  <h1>Lab 6</h1>
+  <h3 style="color:#fff">Incident Response Tabletop</h3>
+  <p class="small" style="color:#fff">Module 5 — Security IN the Cloud · Part 3</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🎯 Objective</h2>
+  <p>Work three realistic incidents through a cloud-native IR workflow — detect, analyze, contain, eradicate, recover, learn — and <strong>perform the real containment actions</strong> in the class account.</p>
+  <ul class="tight">
+    <li>Investigate <strong>GuardDuty</strong> sample findings (Resource / Actor / Action)</li>
+    <li>Contain a stolen role session: <em>Revoke active sessions</em> + a quarantine security group</li>
+    <li>Contain a compromised IAM user: deactivate the key, deny everything, trace it in CloudTrail</li>
+    <li>Read the policy AWS attaches to leaked keys — and find what it does <em>not</em> block</li>
+  </ul>
+  <p class="small">👥 <strong>Shared class account:</strong> everyone works in the same AWS account. Start every resource name with your student ID, and only open, change, or delete resources that start with <em>your</em> ID.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📚 Terms You'll See</h2>
+  <ul class="glossary">
+    <li><strong>GuardDuty</strong> — AWS threat-detection service; analyzes CloudTrail, VPC Flow Logs and DNS logs</li>
+    <li><strong>finding</strong> — a detection, scored Low / Medium / High (and Critical)</li>
+    <li><strong>Sample finding</strong> — a GuardDuty-generated example, titled <code>[SAMPLE]</code>, with placeholder values</li>
+    <li><strong>Detective</strong> — service that builds investigation graphs from CloudTrail, VPC Flow Logs &amp; GuardDuty</li>
+    <li><strong>Break-glass role</strong> — pre-provisioned emergency IAM role with elevated access</li>
+    <li><strong>Forensic account</strong> — isolated AWS account for evidence &amp; analysis</li>
+    <li><strong>IMDS</strong> — EC2 Instance Metadata Service; classic SSRF target for stealing role credentials</li>
+    <li><strong>aws:TokenIssueTime</strong> — IAM condition key: when a temporary credential was issued</li>
+    <li><strong>Quarantine SG</strong> — security group with no inbound and no outbound rules</li>
+    <li><strong>SSM Automation runbook</strong> — Systems Manager document you can run by hand or from EventBridge</li>
+  </ul>
+</section>
+
+<!-- ===================== PART 1: GUARDDUTY ===================== -->
+
+<section style="font-size:43.2px">
+  <h2>🛰️ Step 1 — Open GuardDuty</h2>
+  <p class="small">Region for this entire lab: <strong>US East (N. Virginia) us-east-1</strong> — check the region selector (top right) before every step. Replace <code>&lt;student-id&gt;</code> with your instructor-assigned student ID everywhere.</p>
+  <p class="small">GuardDuty is <strong>one setting for the whole account</strong>. Your instructor has already enabled it and generated sample findings for the class.</p>
+  <ol class="steps">
+    <li>Open <strong>GuardDuty</strong> (search bar → <em>GuardDuty</em>)</li>
+    <li>Choose <em>Findings</em> in the left menu</li>
+    <li><strong>Do not</strong> change anything under <em>Settings</em> — no <em>Suspend</em>, no <em>Disable</em>, no new sample findings</li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> the Findings list shows <strong>several hundred</strong> findings, each title starting <code>[SAMPLE]</code>, across Critical / High / Medium / Low. Everyone in the class sees the same findings.</div>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🔎 Step 2 — Open the Scenario A Finding</h2>
+  <ol class="steps">
+    <li>In <em>Findings</em>, click the filter bar → <em>Finding type</em> → paste<br><code style="overflow-wrap:anywhere">UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS</code></li>
+    <li>Click the one finding to open the details panel</li>
+    <li>Read the <em>Overview</em>: severity, region, count, first/last seen</li>
+    <li>Read <em>Resource affected</em> — what kind of resource is the target?</li>
+    <li>Read <em>Action</em> and <em>Actor</em> — which API, from which IP / ISP / country?</li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> severity <strong>High (8.0)</strong>; title <em>Credentials for instance role GeneratedFindingUserName were used from an external IP address</em>; resource type <strong>AccessKey</strong> with instance <code>i-99999999</code> attached; action type <strong>AWS_API_CALL</strong>, caller IP <code>198.51.100.0</code>. Sample values are placeholders (<code>GeneratedFinding…</code>) — the <em>structure</em> is what a real one looks like.</div>
+</section>
+
+<!-- ===================== SCENARIO A ===================== -->
+
+<section style="font-size:43.2px">
+  <h2>🚨 Scenario A — Credential Exfiltration</h2>
+  <p class="small">Same finding type you just opened — now with real-world values:</p>
+  <pre><code style="font-size:21.25px;max-height:none">UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS
+  Severity: High
+  Resource: AccessKey of role prod-api-role
+            (instance i-0a12b34c, prod-api account)
+  Action:   AWS_API_CALL from IP 203.0.113.42 (not an AWS IP)
+  Detail:   Credentials created for the instance role via IMDS
+            are being used from outside AWS</code></pre>
+  <p>Someone stole temporary credentials off an EC2 instance and is using them from the internet.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✏️ Scenario A — Your Tasks</h2>
+  <p class="small">Write your answers in a notepad; you will perform two of the containment actions next.</p>
+  <ol>
+    <li>List the first <strong>five actions</strong> you take, in order</li>
+    <li>For each action, name the AWS service or API you would use</li>
+    <li>What do you preserve <em>before</em> you change anything?</li>
+    <li>Which <strong>root cause</strong> would you hunt for? (It's almost always one of three things.)</li>
+  </ol>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🛠️ Step 3 — Build a Stand-in for <code>prod-api-role</code></h2>
+  <ol class="steps">
+    <li>Open <strong>IAM</strong> → <em>Roles</em> → <em>Create role</em></li>
+    <li><em>Trusted entity type</em>: <em>AWS service</em>; <em>Use case</em>: <em>EC2</em> → <em>Next</em></li>
+    <li>Attach no permissions → <em>Next</em></li>
+    <li><em>Role name</em>: <code>&lt;student-id&gt;-prod-api-role</code> → <em>Create role</em></li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> the role appears in the Roles list; its <em>Trust relationships</em> tab shows principal <code>ec2.amazonaws.com</code> with action <code>sts:AssumeRole</code>.</div>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>⛔ Step 4 — Revoke the Stolen Sessions</h2>
+  <p class="small">Removing a role from an instance profile does <strong>not</strong> invalidate credentials already issued — they stay valid until they expire (up to hours).</p>
+  <ol class="steps">
+    <li>Open <code>&lt;student-id&gt;-prod-api-role</code> → the <em>Revoke sessions</em> tab</li>
+    <li>Choose <em>Revoke active sessions</em></li>
+    <li>Tick the acknowledgement box → choose <em>Revoke active sessions</em></li>
+    <li>Open the <em>Permissions</em> tab → expand the new inline policy</li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> a new inline policy named <strong><code>AWSRevokeOlderSessions</code></strong>: <code>Effect: Deny</code>, <code>Action: *</code>, <code>Resource: *</code>, <code>Condition: DateLessThan aws:TokenIssueTime = &lt;about 30 seconds after you clicked&gt;</code> (the extra 30 s covers policy propagation).</div>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🧪 What That Policy Actually Did</h2>
+  <ul class="tight">
+    <li>Any credential issued <strong>before</strong> the timestamp → every call is denied, explicitly</li>
+    <li>Credentials issued <strong>after</strong> it → work normally, so the real instance recovers when it fetches fresh credentials from IMDS</li>
+    <li>Verified in a test account: a session issued before the revoke got<br><code class="small">AccessDenied … not authorized to perform: s3:ListAllMyBuckets with an explicit deny in an identity-based policy</code></li>
+    <li>A session issued ~10 s after the click was still denied (inside the 30 s buffer); one issued ~45 s after listed buckets normally</li>
+    <li>Catch: if the SSRF hole is still open, the attacker can steal the <em>new</em> credentials too — revoke buys time; the quarantine and fix close the door</li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🧱 Step 5 — Build a Quarantine Security Group</h2>
+  <p class="small">The class account has no default VPC, so create your own empty one (no subnets, no cost).</p>
+  <ol class="steps">
+    <li><strong>VPC</strong> → <em>Your VPCs</em> → <em>Create VPC</em> → <em>Resources to create</em>: <em>VPC only</em></li>
+    <li><em>Name tag</em>: <code>&lt;student-id&gt;-lab6</code>; <em>IPv4 CIDR</em>: <code>10.60.0.0/16</code> → <em>Create VPC</em></li>
+    <li><em>Security groups</em> (left menu) → <em>Create security group</em></li>
+    <li>Name <code>&lt;student-id&gt;-quarantine</code>; description <code>IR quarantine - no inbound or outbound</code>; VPC <code>&lt;student-id&gt;-lab6</code></li>
+    <li><em>Inbound rules</em>: add none. <em>Outbound rules</em>: if the form shows the default <em>All traffic · 0.0.0.0/0</em> rule, choose <em>Delete</em> on it</li>
+    <li><em>Create security group</em>; if the <em>Outbound rules</em> tab still lists a rule → <em>Edit outbound rules</em> → <em>Delete</em> → <em>Save rules</em></li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> the group's <em>Inbound rules</em> and <em>Outbound rules</em> tabs both show <strong>no rules</strong>. A new SG normally gets an allow-all outbound rule — removing it is what makes this a quarantine SG.</div>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📖 Scenario A — Sample Playbook</h2>
+  <ol class="steps">
+    <li><strong>Preserve:</strong> snapshot the instance's EBS volume(s) (<code>ec2:CreateSnapshot</code>); export CloudTrail &amp; VPC Flow Logs; tag the instance as evidence</li>
+    <li><strong>Contain:</strong> <em>Revoke active sessions</em> on the role (what you just did — <code>AWSRevokeOlderSessions</code>)</li>
+    <li><strong>Contain:</strong> swap the instance's SGs for the quarantine SG. SG changes block <em>new</em> flows, but already-tracked connections can continue — add a deny-all NACL on the subnet to cut existing sessions. Runbook: <code>AWSSupport-ContainEC2Instance</code></li>
+    <li><strong>Analyze:</strong> pivot in <strong>Detective</strong> from the finding to the role's API activity — what else did <code>203.0.113.42</code> touch?</li>
+    <li><strong>Eradicate:</strong> terminate, redeploy from a known-good AMI/IaC, require IMDSv2 (hop limit 1), trim the role's permissions</li>
+  </ol>
+  <p class="small">Root cause is typically: SSRF in the app, an over-permissive instance profile, or IMDSv1 still enabled.</p>
+</section>
+
+<!-- ===================== SCENARIO B ===================== -->
+
+<section style="font-size:43.2px">
+  <h2>🔎 Step 6 — Open the Scenario B Finding</h2>
+  <ol class="steps">
+    <li><strong>GuardDuty</strong> → <em>Findings</em> → clear the previous filter</li>
+    <li>Filter <em>Finding type</em> = <code>Exfiltration:IAMUser/AnomalousBehavior</code> → open it</li>
+    <li>Read <em>Resource affected</em>, <em>Action</em>, <em>Actor</em></li>
+    <li>Scroll to the anomaly details: which APIs were unusual, and against which profiled baseline (user, account, ASN, user agent)?</li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> severity <strong>High (8.0)</strong>; title <em>The user IAMUser : GeneratedFindingUserName is anomalously invoking APIs commonly used in Exfiltration tactics</em>; resource type <strong>AccessKey</strong>. This type comes from GuardDuty's ML baseline of each identity — it fires on <em>unusual</em> behavior, not on a fixed rule.</div>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🚨 Scenario B — S3 Data Exfiltration</h2>
+  <pre><code style="font-size:21.25px;max-height:none">Exfiltration:IAMUser/AnomalousBehavior
+  Severity: High
+  Principal: iam-user/jdoe (developer, last logged in 3 months ago)
+  Detail:  ListObjects + GetObject anomalous for this user —
+           91 GB downloaded from bucket "customer-exports-prod"
+           in the last hour, from an ASN/country never seen before</code></pre>
+  <p class="small">A long-dormant IAM user's access keys are being used to pull a customer export bucket to an unknown location.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✏️ Scenario B — Your Tasks</h2>
+  <ol>
+    <li>What do you do in the <strong>first 60 seconds</strong>?</li>
+    <li>Which IAM actions revoke access <em>immediately</em> vs. <em>eventually</em>?</li>
+    <li>Which CloudTrail fields tell you which keys, which IPs, which user agent?</li>
+    <li>Who else in the org needs to know — when, and via what channel?</li>
+    <li>What permanent change makes this whole <em>class</em> of incident harder next time?</li>
+  </ol>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🛠️ Step 7 — Create the <code>jdoe</code> Stand-in</h2>
+  <ol class="steps">
+    <li><strong>IAM</strong> → <em>IAM users</em> → <em>Create user</em></li>
+    <li><em>User name</em>: <code>&lt;student-id&gt;-jdoe</code>; leave <em>Provide user access to the AWS Management Console</em> <strong>unchecked</strong> → <em>Next</em></li>
+    <li>Attach no permissions → <em>Next</em> → <em>Create user</em></li>
+    <li>Open the user → <em>Security credentials</em> tab → <em>Access keys</em> → <em>Create access key</em></li>
+    <li>Use case: <em>Other</em> → <em>Next</em> → <em>Create access key</em></li>
+    <li>Do <strong>not</strong> download or copy the secret → <em>Done</em></li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> the <em>Access keys</em> section lists one key (<code>AKIA…</code>) with status <strong>Active</strong>. Write down its <strong>Access key ID</strong> — you'll search CloudTrail for it.</div>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>⛔ Step 8 — Contain <code>jdoe</code></h2>
+  <ol class="steps">
+    <li><em>Security credentials</em> → <em>Access keys</em> → <em>Actions</em> → <em>Deactivate</em> → confirm <em>Deactivate</em></li>
+    <li><em>Permissions</em> tab → <em>Add permissions</em> → <em>Add permissions</em></li>
+    <li><em>Attach policies directly</em> → search <code>AWSDenyAll</code> → tick it → <em>Next</em> → <em>Add permissions</em></li>
+    <li>Open <code>AWSDenyAll</code> from the list and view its JSON</li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> key status <strong>Inactive</strong>. <code>AWSDenyAll</code> is attached, type <em>AWS managed</em>; JSON = one statement <code>"Sid": "DenyAll"</code>, <code>Effect: Deny</code>, <code>Action: ["*"]</code>, <code>Resource: "*"</code>.<br>Tested with the CLI: the key worked before; seconds after deactivation every call returned <code>InvalidClientTokenId — The security token included in the request is invalid</code>.</div>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🕵️ Step 9 — Trace It in CloudTrail</h2>
+  <ol class="steps">
+    <li><strong>CloudTrail</strong> → <em>Event history</em></li>
+    <li>Lookup attribute <em>Resource name</em> = <code>&lt;student-id&gt;-jdoe</code></li>
+    <li>Open the <em>UpdateAccessKey</em> event → view the event record JSON</li>
+    <li>Find <code>userIdentity</code>, <code>sourceIPAddress</code>, <code>userAgent</code>, <code>requestParameters.status</code></li>
+    <li>Change the attribute to <em>AWS access key</em> = jdoe's key ID — what did the key itself do?</li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> <code>CreateUser</code>, <code>CreateAccessKey</code>, <code>UpdateAccessKey</code>, <code>AttachUserPolicy</code> — all with <em>User name</em> = you. <strong>Delivery delay:</strong> in testing, events appeared in Event history about <strong>2 minutes</strong> after the action (typically within ~5 minutes, not guaranteed). Nothing showing yet? Wait and refresh. The access-key search is empty — the key was never used.</div>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📖 Scenario B — Sample Playbook</h2>
+  <ol class="steps">
+    <li><strong>Deactivate</strong> all of <code>jdoe</code>'s access keys (<code>iam:UpdateAccessKey</code>) — effective within seconds. Delete them (<code>iam:DeleteAccessKey</code>) once evidence is captured</li>
+    <li>Attach <code>AWSDenyAll</code> (explicit deny beats every allow) and delete the console password (login profile) if there is one</li>
+    <li><strong>Preserve:</strong> query CloudTrail (Event history — 90 days of management events — or CloudTrail Lake) for everything <code>jdoe</code> did; export it</li>
+    <li><strong>Scope the data:</strong> <code>GetObject</code> is an S3 <em>data event</em> — it is <strong>not</strong> in Event history. You need S3 data events or server access logs enabled <em>before</em> the incident</li>
+    <li><strong>Notify:</strong> incident commander → legal → privacy/DPO → customer comms if exfiltration is confirmed</li>
+    <li><strong>Long-term:</strong> move humans to IAM Identity Center (short-lived creds); Config rule <code>iam-user-unused-credentials-check</code>; EventBridge → Lambda/SSM auto-response on this finding type</li>
+  </ol>
+</section>
+
+<!-- ===================== SCENARIO C ===================== -->
+
+<section style="font-size:43.2px">
+  <h2>🚨 Scenario C — Access Key Exposed on GitHub</h2>
+  <pre><code style="font-size:21.25px;max-height:none">AWS Health event:  AWS_RISK_CREDENTIALS_EXPOSED
+Account:           build-tools (444455556666)
+Detail:  Access key AKIAEXAMPLEKEY123456 for IAM user
+         ci-deployer was found in a public GitHub repository.
+         AWS has attached the managed policy
+         AWSCompromisedKeyQuarantineV3 to the user.
+Repo commit:       pushed 47 minutes ago</code></pre>
+  <p class="small">A CI pipeline's long-lived key was committed to a public repo. AWS detected it and applied a quarantine policy — but that policy only blocks a <em>list</em> of actions.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🛠️ Step 10 — Read the Quarantine Policy</h2>
+  <ol class="steps">
+    <li><strong>IAM</strong> → <em>IAM users</em> → <code>&lt;student-id&gt;-jdoe</code> → <em>Permissions</em> → <em>Add permissions</em> → <em>Add permissions</em></li>
+    <li><em>Attach policies directly</em> → search <code>AWSCompromisedKeyQuarantineV3</code> → tick → <em>Next</em> → <em>Add permissions</em></li>
+    <li>Click the policy name → <em>Permissions</em> tab → <em>JSON</em></li>
+    <li>Skim the <code>Action</code> list. Is <code>sts:AssumeRole</code> there? <code>secretsmanager:GetSecretValue</code>? <code>ec2:TerminateInstances</code>?</li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> the user now has two AWS managed policies. The JSON has <strong>two Deny statements</strong>: a list of about <strong>100 actions</strong> (98 at time of writing) and a second denying <code>kms:CreateGrant</code> unless called via an AWS service. None of the three actions named in item 4 above is on the list. AWS revises this list — read the live JSON, not a blog post.</div>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✏️ Scenario C — Your Tasks</h2>
+  <ol>
+    <li>AWS already quarantined the key. Why is that <strong>not</strong> enough — what can the key still do?</li>
+    <li>List your first five actions, in order, with the AWS service or API for each</li>
+    <li>In the 47 minutes since the push, what would you look for in CloudTrail? Name at least three event names that would worry you most</li>
+    <li>The pipeline breaks once you disable the key. How do you restore it <em>without</em> issuing a new long-lived key?</li>
+    <li>What would have stopped the key from reaching GitHub at all?</li>
+  </ol>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📖 Scenario C — Sample Playbook (1/2)</h2>
+  <ul class="glossary">
+    <li><strong>What the quarantine blocks:</strong> cost/fraud and persistence actions — <code>ec2:RunInstances</code>, Lightsail, Bedrock <code>InvokeModel</code>, <code>iam:CreateUser</code> / <code>CreateAccessKey</code> / <code>Attach*Policy</code> / <code>CreateRole</code>, <code>sts:GetSessionToken</code>, plus some reads (<code>s3:GetObject</code>, <code>s3:ListBucket</code>, <code>iam:ListUsers</code>, <code>cloudtrail:LookupEvents</code>)</li>
+    <li><strong>Why it isn't enough:</strong> it is a deny <em>list</em>. Everything else the user is allowed stays allowed — <code>sts:AssumeRole</code> into other roles, <code>secretsmanager:GetSecretValue</code>, <code>ssm:GetParameter</code>, DynamoDB reads, <code>ec2:TerminateInstances</code>, RDS deletes…</li>
+    <li><strong>And it came late:</strong> anything done in the 47 minutes <em>before</em> it was attached (new users, keys, roles) is already in place</li>
+    <li><strong>Contain:</strong> deactivate the key (<code>iam:UpdateAccessKey</code> → Inactive) using <em>your</em> credentials; attach <code>AWSDenyAll</code>; delete the key after the evidence export</li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📖 Scenario C — Sample Playbook (2/2)</h2>
+  <ul class="glossary">
+    <li><strong>Analyze:</strong> CloudTrail Event history filtered by <em>AWS access key</em> = the exposed key (exactly what you did in Step 9). Worry most about <code>CreateUser</code>, <code>CreateAccessKey</code>, <code>CreateLoginProfile</code>, <code>AttachUserPolicy</code>, <code>CreateRole</code> / <code>UpdateAssumeRolePolicy</code> (persistence), <code>AssumeRole</code> (lateral movement), <code>RunInstances</code> in unused regions (crypto-mining), <code>GetSecretValue</code> (data theft)</li>
+    <li><strong>Eradicate:</strong> delete anything the attacker created; check <strong>every region</strong> — Event history is per-region</li>
+    <li><strong>Recover:</strong> move the pipeline to an <strong>IAM role assumed via OIDC</strong> (GitHub Actions → <code>sts:AssumeRoleWithWebIdentity</code>) — short-lived creds, no stored key</li>
+    <li><strong>Prevent:</strong> secret scanning / push protection in the repo, pre-commit hooks, a Config rule or Access Analyzer review that flags IAM users with keys; scrub the commit from history (the key is burned either way)</li>
+  </ul>
+</section>
+
+<!-- ===================== RUNBOOKS ===================== -->
+
+<section style="font-size:43.2px">
+  <h2>📘 Step 11 — Built-in IR Runbooks</h2>
+  <ol class="steps">
+    <li><strong>Systems Manager</strong> → <em>Documents</em> (under <em>Change Management Tools</em> / <em>Shared Resources</em>)</li>
+    <li>Choose the <em>Owned by Amazon</em> tab and search each name below; open it and read its <em>Description</em></li>
+  </ol>
+  <ul class="tight">
+    <li><code>AWSSupport-ContainEC2Instance</code> — swaps SGs to isolate an instance, optional AMI backup, stores original config for restore</li>
+    <li><code>AWS-CreateSnapshot</code> — EBS snapshot (evidence before you touch anything)</li>
+    <li><code>AWS-DisablePublicAccessForSecurityGroup</code> — removes SSH/RDP rules open to the world</li>
+    <li><code>AWSConfigRemediation-RevokeUnusedIAMUserCredentials</code> — deactivates unused keys / passwords (needs AWS Config)</li>
+  </ul>
+  <div class="check">✅ <strong>Check:</strong> all four exist with document type <strong>Automation</strong>. Read the network-isolation warning in <code>AWSSupport-ContainEC2Instance</code> — it confirms the connection-tracking caveat from Scenario A. <strong>Don't run any of them.</strong></div>
+</section>
+
+<!-- ===================== CLEANUP ===================== -->
+
+<section style="font-size:43.2px">
+  <h2>🧹 Cleanup (1/2) — IAM &amp; VPC</h2>
+  <ol class="steps">
+    <li><strong>IAM</strong> → <em>IAM users</em> → tick <code>&lt;student-id&gt;-jdoe</code> → <em>Delete</em> → type the user name → <em>Delete</em> (the console removes its access key and detaches both policies for you)</li>
+    <li><strong>IAM</strong> → <em>Roles</em> → tick <code>&lt;student-id&gt;-prod-api-role</code> → <em>Delete</em> → type the role name → <em>Delete</em> (removes the <code>AWSRevokeOlderSessions</code> inline policy too)</li>
+    <li><strong>VPC</strong> → <em>Security groups</em> → tick <code>&lt;student-id&gt;-quarantine</code> → <em>Actions</em> → <em>Delete security groups</em> → confirm</li>
+    <li><strong>VPC</strong> → <em>Your VPCs</em> → tick <code>&lt;student-id&gt;-lab6</code> → <em>Actions</em> → <em>Delete VPC</em> → type <code>delete</code> → <em>Delete</em></li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> searching Users, Roles, Security groups and Your VPCs for <code>&lt;student-id&gt;</code> returns nothing from this lab.</div>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🧹 Cleanup (2/2) — GuardDuty Stays On</h2>
+  <p><strong>Leave GuardDuty alone.</strong> It is shared by the whole class — disabling it would delete everyone's findings.</p>
+  <ul class="tight">
+    <li>Your instructor turns it off after class: <em>Settings</em> → <em>Disable GuardDuty</em> → confirm</li>
+    <li><strong>Suspend</strong> = stop monitoring and billing, keep existing findings and settings</li>
+    <li><strong>Disable</strong> = delete the detector, all findings and all configuration</li>
+    <li>GuardDuty bills per volume of logs analyzed once its 30-day trial ends — which is why someone must own turning it off</li>
+  </ul>
+</section>
+
+<section data-background-color="#146EB4" style="font-size:43.2px">
+  <h2>💬 Discussion</h2>
+  <ul>
+    <li>Which of today's actions are <em>safe</em> to automate (EventBridge → SSM/Lambda), and which need a human in the loop?</li>
+    <li><em>Revoke active sessions</em> also cut off the legitimate instance's old credentials. When is that acceptable?</li>
+    <li>How do you practice these playbooks <em>before</em> a real incident? <span class="small" style="color:#cce">Game days, sample-finding replays, drills like this one</span></li>
+    <li>If the compromised role had <em>tag-based</em> access, how much would the blast radius shrink?</li>
+  </ul>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>

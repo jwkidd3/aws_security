@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 4 — Data Protection &amp; KMS</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
+  .reveal { font-size: 32px; }
+  .reveal h1 { font-size: 1.8em; }
+  .reveal h2 { font-size: 1.2em; }
+  .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul, .reveal ol { line-height: 1.35; }
+  .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
+  .reveal pre code { padding:12px; font-size:0.55em; line-height:1.3; }
+  .reveal .small { font-size: 0.72em; color:#555; }
+  .reveal table { font-size: 0.7em; border-collapse: collapse; width: 100%; }
+  .reveal th, .reveal td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; vertical-align: top; }
+  .reveal th { background: #f4f4f4; color: var(--aws-navy); }
+  .reveal .glossary li { font-size: 0.72em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h1,
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] h3,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+  .reveal pre.code-lg code { font-size:0.9em; max-height:440px; }
+  .reveal .check { font-size:0.72em; background:#eef7ee; border-left:6px solid #2e8b57; padding:6px 12px; margin-top:10px; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.55em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide" data-background-color="#FF9900">
+  <span class="lab-tag">Hands-On Lab · 35 min</span>
+  <h1>Lab 4</h1>
+  <h3 style="color:#fff">Data Protection &amp; KMS</h3>
+  <p class="small" style="color:#fff">Module 3 — Security IN the Cloud · Part 1</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🎯 Objective</h2>
+  <p>Protect a fictional healthcare workload's data in the shared class account:</p>
+  <ul>
+    <li>Create a <strong>customer managed KMS key</strong> and read its key policy</li>
+    <li>Build an S3 bucket that encrypts with that key by default</li>
+    <li>Apply a bucket policy that <strong>rejects</strong> the wrong encryption and non-TLS requests — then prove it from CloudShell</li>
+    <li>Disable the key and see what breaks</li>
+  </ul>
+  <p class="small">Finish early? An <strong>Extra</strong> slide adds key rotation, TLS for PostgreSQL, and a Secrets Manager secret.</p>
+  <p class="small">👥 <strong>Shared class account:</strong> everyone works in the same AWS account. Start every resource name with your student ID, and only open, change, or delete resources that start with <em>your</em> ID.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📚 Terms You'll See</h2>
+  <ul class="glossary">
+    <li><strong>KMS key</strong> — logical key in AWS Key Management Service (KMS); you grant use of it via a key policy</li>
+    <li><strong>AWS managed key</strong> — AWS creates it per service (e.g. <code>aws/s3</code>); simple, no monthly fee, you can't edit its policy</li>
+    <li><strong>Customer managed key</strong> — you own the key policy, rotation, grants, and audit trail</li>
+    <li><strong>Envelope encryption</strong> — KMS encrypts a per-object data key; the data key encrypts the data</li>
+    <li><strong>Key policy</strong> — resource policy attached to a KMS key (required, not optional)</li>
+    <li><strong>S3 Bucket Key</strong> — a bucket-level data key that cuts KMS calls (and cost) for SSE-KMS</li>
+    <li><strong>SSE-S3 / SSE-KMS</strong> — S3 encryption with S3-managed keys vs. with a KMS key</li>
+    <li><strong>CloudShell</strong> — browser-based terminal in the console, already signed in as you</li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🏥 Scenario — "HealthMetric" Workload</h2>
+  <p class="small">A regulated healthcare analytics workload running in one AWS account.</p>
+  <ul>
+    <li><strong>S3 bucket</strong> holding raw patient data exports (PHI)</li>
+    <li><strong>RDS PostgreSQL</strong> holding reporting data (derived, pseudonymized)</li>
+    <li><strong>EBS volumes</strong> attached to EC2 processing nodes</li>
+    <li><strong>Secrets Manager</strong> storing DB connection strings &amp; third-party API keys</li>
+    <li><strong>CloudTrail</strong> logs delivered to a separate log-archive bucket</li>
+  </ul>
+  <p class="small">You'll build the key and the PHI bucket. No EC2, RDS instances, or load balancers are launched.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>⚙️ Before You Start</h2>
+  <ol>
+    <li>Sign in to the class AWS account with your student credentials</li>
+    <li>Region selector (top right): <strong>US East (N. Virginia) us-east-1</strong> — use it for the whole lab</li>
+    <li>Open the account menu (top right) and copy your 12-digit <strong>Account ID</strong></li>
+    <li>Note the IAM user or role you're signed in as (also in the account menu) — you'll make it the key administrator</li>
+    <li>Use the student ID your instructor assigned you (lowercase, e.g. <code>stu07</code>) — every resource starts with <code>&lt;student-id&gt;-</code></li>
+    <li>Keep a notepad open for your key ARN and test results</li>
+  </ol>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🔑 Task 1 — Pick the Right Key</h2>
+  <p>For each resource, pick <strong>AWS managed key</strong>, <strong>Customer managed key</strong>, or <strong>CloudHSM-backed key</strong>, and justify in one line.</p>
+  <table>
+    <thead><tr><th>Resource</th><th>Your choice</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Raw PHI S3 bucket</td><td></td><td></td></tr>
+      <tr><td>Worker-node EBS volumes</td><td></td><td></td></tr>
+      <tr><td>CloudTrail log bucket</td><td></td><td></td></tr>
+    </tbody>
+  </table>
+  <p class="small">Hint: use customer managed keys anywhere you need per-workload audit, explicit grants, key-policy control, or cross-account sharing.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✅ Task 1 — Sample Answer</h2>
+  <ul class="glossary">
+    <li><strong>PHI S3 bucket — customer managed key:</strong> regulated data; you need a key policy that names exactly who can decrypt, plus per-key CloudTrail audit</li>
+    <li><strong>EBS — AWS managed key</strong> is usually enough; turn on <em>EBS encryption by default</em> for the region</li>
+    <li><strong>CloudTrail bucket — customer managed key:</strong> the log-archive team, not the workload team, should control decryption</li>
+    <li><strong>CloudHSM-backed:</strong> none of these, unless a regulator specifically requires single-tenant key hardware</li>
+  </ul>
+  <p class="small">Next you'll build the PHI bucket's customer managed key.</p>
+</section>
+
+<section>
+  <h2>🔐 Part 1 — Create a Customer Managed Key</h2>
+  <ol>
+    <li>Open <strong>Key Management Service (KMS)</strong> → <em>Customer managed keys</em> → <em>Create key</em></li>
+    <li>Key type: <em>Symmetric</em> · Key usage: <em>Encrypt and decrypt</em> → <em>Next</em></li>
+    <li>Alias: <code>&lt;student-id&gt;-healthmetric-phi</code> · Description: <code>HealthMetric PHI data key</code> → <em>Next</em></li>
+    <li>Key administrators: select <strong>your own</strong> user or role → <em>Next</em></li>
+    <li>Key users: select <strong>your own</strong> user or role → <em>Next</em> · <em>Edit key policy</em> (optional): leave as is → <em>Next</em></li>
+    <li>Review → <em>Finish</em></li>
+    <li>Open the key and copy its <strong>ARN</strong> (<code>arn:aws:kms:us-east-1:&lt;account-id&gt;:key/…</code>) to your notepad</li>
+    <li><em>Key policy</em> tab → <em>Switch to policy view</em> → note each statement's <code>Sid</code> and <code>Principal</code></li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> status <strong>Enabled</strong>; four statements — <code>Enable IAM User Permissions</code> (account root, <code>kms:*</code>), <code>Allow access for Key Administrators</code>, <code>Allow use of the key</code>, <code>Allow attachment of persistent resources</code> (grants only when <code>kms:GrantIsForAWSResource</code> is true). Every principal is <strong>inside your account</strong>.</div>
+  <p class="small">Can't find yourself in the list? Skip that step — the root statement still lets your admin permissions manage the key (you'll see fewer statements).</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📜 Task 2 — Review This Key Policy</h2>
+<pre class="code-lg"><code style="font-size:21.25px;max-height:none">{
+  "Version": "2012-10-17",
+  "Id": "phi-bucket-key",
+  "Statement": [
+    { "Sid": "EnableRoot", "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::111122223333:root" },
+      "Action": "kms:*", "Resource": "*" },
+    { "Sid": "AllowEveryone", "Effect": "Allow",
+      "Principal": "*",
+      "Action": [
+        "kms:Encrypt","kms:Decrypt","kms:GenerateDataKey",
+        "kms:DescribeKey","kms:ReEncrypt*"
+      ],
+      "Resource": "*" }
+  ]
+}</code></pre>
+  <p>Compare it with the policy on <strong>your</strong> key. List at least <strong>3 problems</strong>. Which statement is dangerous, and what would you change?</p>
+</section>
+
+<section style="font-size:38.4px">
+  <h2>🗝️ Task 2 — Answer Key</h2>
+  <ul>
+    <li><code>"Principal": "*"</code> allows <em>any</em> AWS principal, including other accounts — this is the headline bug. Your key names only principals in your account.</li>
+    <li>No <code>kms:ViaService</code> condition → the key can be used from any service, not just S3</li>
+    <li>No <code>kms:CallerAccount</code> / <code>aws:PrincipalAccount</code> condition → no account-scope guardrail</li>
+    <li>Including <code>kms:ReEncrypt*</code> with wildcards is often broader than needed</li>
+    <li>Fix: restrict <code>Principal</code> to specific role ARNs, add <code>"kms:ViaService": "s3.us-east-1.amazonaws.com"</code>, and scope actions to what the workload actually needs</li>
+  </ul>
+</section>
+
+<section style="font-size:41.6px">
+  <h2>🪣 Part 2 — Create the PHI Bucket</h2>
+  <ol>
+    <li><strong>S3</strong> → <em>Buckets</em> → <em>Create bucket</em> · Bucket type: <em>General purpose</em> · namespace: <em>Global namespace</em></li>
+    <li>Name: <code>&lt;student-id&gt;-healthmetric-phi-&lt;account-id&gt;</code></li>
+    <li>Leave <em>Block all public access</em> <strong>on</strong></li>
+    <li>Default encryption → Encryption type: <em>Server-side encryption with AWS Key Management Service keys (SSE-KMS)</em></li>
+    <li>AWS KMS key: <em>Choose from your AWS KMS keys</em> → pick <code>&lt;student-id&gt;-healthmetric-phi</code></li>
+    <li>Bucket Key: <em>Enable</em> → <em>Create bucket</em></li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> bucket → <em>Properties</em> → <em>Default encryption</em> shows <strong>SSE-KMS</strong>, your key's ARN, and Bucket Key <strong>Enabled</strong>.</div>
+</section>
+
+<section style="font-size:41.6px">
+  <h2>✏️ Part 3 — Apply an Encryption + TLS Bucket Policy</h2>
+  <p class="small">Bucket → <em>Permissions</em> → <em>Bucket policy</em> → <em>Edit</em>. Paste, replace <code>BUCKET</code> (4×) and <code>KEY-ARN</code> with yours → <em>Save changes</em>.</p>
+<pre class="code-lg"><code style="font-size:19.75px;max-height:none">{ "Version": "2012-10-17",
+  "Statement": [
+    { "Sid": "DenyInsecureTransport", "Effect": "Deny", "Principal": "*", "Action": "s3:*",
+      "Resource": ["arn:aws:s3:::BUCKET", "arn:aws:s3:::BUCKET/*"],
+      "Condition": { "Bool": { "aws:SecureTransport": "false" } } },
+    { "Sid": "DenyNonKmsEncryption", "Effect": "Deny", "Principal": "*",
+      "Action": "s3:PutObject", "Resource": "arn:aws:s3:::BUCKET/*",
+      "Condition": {
+        "Null": { "s3:x-amz-server-side-encryption": "false" },
+        "StringNotEquals": { "s3:x-amz-server-side-encryption": "aws:kms" } } },
+    { "Sid": "DenyWrongKmsKey", "Effect": "Deny", "Principal": "*",
+      "Action": "s3:PutObject", "Resource": "arn:aws:s3:::BUCKET/*",
+      "Condition": { "StringNotEqualsIfExists": {
+        "s3:x-amz-server-side-encryption-aws-kms-key-id": "KEY-ARN" } } }
+  ] }</code></pre>
+  <div class="check">✅ <strong>Check:</strong> the policy saves with no error — Deny-only statements don't conflict with Block Public Access.</div>
+</section>
+
+<section style="font-size:38.4px">
+  <h2>🧠 Part 3 — How the Policy Works</h2>
+  <ul>
+    <li><strong>DenyInsecureTransport</strong> — any request over plain HTTP is refused</li>
+    <li><strong>DenyNonKmsEncryption</strong> — <em>if</em> the upload sends an encryption header (<code>Null = false</code>) and it isn't <code>aws:kms</code> → deny (blocks SSE-S3 and DSSE-KMS)</li>
+    <li><strong>DenyWrongKmsKey</strong> — S3 fills in the key the upload will <em>actually</em> use (including the bucket default), so any key other than yours → deny; no KMS key at all (SSE-S3) → deny</li>
+    <li>Uploads that send <strong>no</strong> encryption header get the bucket default (your key) → allowed</li>
+  </ul>
+  <p class="small">⚠️ Common mistake: <code>StringNotEquals</code> (or <code>StringNotEqualsIfExists</code>) on <code>s3:x-amz-server-side-encryption</code> by itself also matches when the header is <em>missing</em> — it would block every upload that relies on default encryption, including ordinary console uploads.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🔮 Task 3 — Predict Before You Test</h2>
+  <p>Write <strong>Allowed</strong> or <strong>Denied</strong> for each request, and which statement decides it:</p>
+  <table>
+    <thead><tr><th>#</th><th>Request</th><th>Your prediction</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Upload with no encryption setting (bucket default)</td><td></td></tr>
+      <tr><td>2</td><td>Upload with SSE-S3</td><td></td></tr>
+      <tr><td>3</td><td>Upload with SSE-KMS using the <code>aws/s3</code> AWS managed key</td><td></td></tr>
+      <tr><td>4</td><td>Upload with SSE-KMS using your key's alias</td><td></td></tr>
+      <tr><td>5</td><td>Listing the bucket over <code>http://</code> instead of <code>https://</code></td><td></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section style="font-size:38.4px">
+  <h2>💻 Part 4 — Test Every Request (CloudShell)</h2>
+  <p class="small">Open <strong>CloudShell</strong> (terminal icon in the console's top bar, us-east-1). Set your names, then run each command:</p>
+<pre class="code-lg"><code style="font-size:19.75px;max-height:none">B=&lt;student-id&gt;-healthmetric-phi-&lt;account-id&gt;
+K=alias/&lt;student-id&gt;-healthmetric-phi
+echo "patient record" &gt; patient-001.txt
+
+# 1: no encryption setting (bucket default)
+aws s3 cp patient-001.txt s3://$B/
+# 2: SSE-S3
+aws s3 cp patient-001.txt s3://$B/sse-s3.txt --sse AES256
+# 3: SSE-KMS with the AWS managed aws/s3 key
+aws s3 cp patient-001.txt s3://$B/wrong-key.txt --sse aws:kms --sse-kms-key-id alias/aws/s3
+# 4: SSE-KMS with YOUR key
+aws s3 cp patient-001.txt s3://$B/right-key.txt --sse aws:kms --sse-kms-key-id $K
+# 5: list over plain HTTP, then over HTTPS
+aws s3 ls s3://$B --endpoint-url http://s3.us-east-1.amazonaws.com
+aws s3 ls s3://$B</code></pre>
+  <div class="check">✅ <strong>Check:</strong> #1 and #4 print <code>upload: …</code> · #2 and #3 print <code>upload failed … AccessDenied … explicit deny in a resource-based policy</code> · HTTP list <code>AccessDenied … explicit deny</code> · HTTPS list shows <code>patient-001.txt</code> and <code>right-key.txt</code>.</div>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🔍 Part 4 — Which Key Encrypted Object #1?</h2>
+<pre class="code-lg"><code style="font-size:21.25px;max-height:none">aws s3api head-object --bucket $B --key patient-001.txt</code></pre>
+  <div class="check">✅ <strong>Check:</strong> <code>"ServerSideEncryption": "aws:kms"</code>, <code>"SSEKMSKeyId"</code> = <strong>your key's ARN</strong>, <code>"BucketKeyEnabled": true</code>.</div>
+  <p class="small">You never chose a key for upload #1 — the bucket default did it, and the policy allowed it. The same is true for an ordinary console upload.</p>
+</section>
+
+<section style="font-size:41.6px">
+  <h2>✅ Task 3 — Results</h2>
+  <table>
+    <thead><tr><th>#</th><th>Request</th><th>Result</th><th>Decided by</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>No encryption setting</td><td><strong>Allowed</strong> — SSE-KMS with your key</td><td>No statement matches</td></tr>
+      <tr><td>2</td><td>SSE-S3</td><td><strong>Denied</strong></td><td>DenyNonKmsEncryption (and DenyWrongKmsKey)</td></tr>
+      <tr><td>3</td><td>SSE-KMS with <code>aws/s3</code></td><td><strong>Denied</strong></td><td>DenyWrongKmsKey</td></tr>
+      <tr><td>4</td><td>SSE-KMS with your key alias</td><td><strong>Allowed</strong></td><td>S3 resolves the alias to your key ARN</td></tr>
+      <tr><td>5</td><td>List over HTTP</td><td><strong>Denied</strong></td><td>DenyInsecureTransport</td></tr>
+    </tbody>
+  </table>
+  <p class="small">Bonus: an HTTP <em>upload</em> is refused even earlier — S3 rejects any SSE-KMS request that isn't over TLS (<code>InvalidArgument … must be made over a secure connection</code>). The policy still matters for reads, lists, and deletes. Combine with Block Public Access for a complete baseline.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🔌 Part 5 — Pull the Plug: Disable the Key</h2>
+  <ol>
+    <li><strong>KMS</strong> → <em>Customer managed keys</em> → select your key → <em>Key actions</em> → <em>Disable</em> → confirm</li>
+    <li>Wait ~30 seconds, then in CloudShell: <code>aws s3 cp s3://$B/patient-001.txt -</code></li>
+    <li>Back in KMS → <em>Key actions</em> → <em>Enable</em>, wait ~30 seconds, and run the same command again</li>
+  </ol>
+  <div class="check">✅ <strong>Check:</strong> while disabled: <code>download failed … KMS.DisabledException … is disabled</code>. After re-enabling: <code>patient record</code> is printed.</div>
+  <p class="small">The data never moved — only access to the key changed. That's the power (and risk) of a customer managed key.</p>
+</section>
+
+<section style="font-size:41.6px">
+  <h2>⭐ Extra — If You Finish Early</h2>
+  <p class="small">Optional. Each item stands alone; your key must be <strong>Enabled</strong>.</p>
+  <ol class="small">
+    <li><strong>Key rotation:</strong> KMS → your key → <em>Key material and rotations</em> tab → <em>Automatic key rotation</em> → <em>Edit</em> → <em>Enable</em> (keep 365 days) → <em>Save</em>. ✅ A next rotation date one year out.</li>
+    <li><strong>TLS for PostgreSQL:</strong> <strong>Aurora and RDS</strong> → <em>Parameter groups</em> → <em>Create parameter group</em> · Name <code>&lt;student-id&gt;-force-ssl</code> · Description <code>HealthMetric TLS settings</code> · Engine type <em>PostgreSQL</em> · Family <em>postgres16</em> · Type <em>DB Parameter Group</em> → <em>Create</em></li>
+    <li>Open the group, search <code>ssl</code> → <em>Edit</em> → <code>ssl_min_protocol_version</code> = <code>TLSv1.3</code> → <em>Save changes</em>. ✅ <code>rds.force_ssl</code> is already <strong>1</strong> (default for PostgreSQL 15+; <strong>0</strong> for postgres14 and earlier). A parameter group does nothing until a DB instance uses it.</li>
+    <li><strong>Secret with your key:</strong> <strong>Secrets Manager</strong> → <em>Store a new secret</em> → <em>Other type of secret</em> · <code>username</code> = <code>report_reader</code>, <code>password</code> = <code>Example-Only-123</code> · Encryption key: your key → <em>Next</em> · Name <code>&lt;student-id&gt;/healthmetric/reporting-db</code> → <em>Next</em> → <em>Next</em> (rotation off) → <em>Store</em></li>
+    <li>Open the secret → <em>Retrieve secret value</em>. Disable your key, wait ~30 s, retry → <code>DecryptionFailure</code> (the key "is disabled"). Re-enable the key.</li>
+  </ol>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🧹 Cleanup</h2>
+  <ol class="small">
+    <li><em>(if you did the Extra)</em> <strong>Secrets Manager</strong> → your secret → <em>Actions</em> → <em>Delete secret</em> → waiting period <code>7</code> days → <em>Schedule deletion</em></li>
+    <li><em>(if you did the Extra)</em> <strong>Aurora and RDS</strong> → <em>Parameter groups</em> → select <code>&lt;student-id&gt;-force-ssl</code> → <em>Actions</em> → <em>Delete</em></li>
+    <li>CloudShell (if it restarted, set <code>B</code> and <code>K</code> again first):</li>
+  </ol>
+<pre class="code-lg"><code style="font-size:21.25px;max-height:none">KID=$(aws kms describe-key --key-id $K --query KeyMetadata.KeyId --output text)
+aws s3 rm s3://$B --recursive
+aws s3 rb s3://$B
+aws kms delete-alias --alias-name $K
+aws kms schedule-key-deletion --key-id $KID --pending-window-in-days 7
+rm patient-001.txt</code></pre>
+  <div class="check">✅ <strong>Check:</strong> <code>remove_bucket: …</code> is printed; the key shows <code>"KeyState": "PendingDeletion"</code> with a deletion date 7 days out; any secret shows a deletion date and the parameter group is gone.</div>
+</section>
+
+<section data-background-color="#146EB4" style="font-size:38.4px">
+  <h2>💬 Discussion</h2>
+  <ul>
+    <li>When is an AWS managed key genuinely sufficient — and when is the audit burden of a customer managed key worth it?</li>
+    <li>Your org standard says "encrypt everything." How do you enforce that in code/pipelines rather than at review time?<br>
+      <span class="small" style="color:#cce">Config rules · SCPs forbidding unencrypted resources · cdk-nag / checkov in CI</span></li>
+    <li>How would you enforce TLS end to end — at the ALB, to RDS, to S3, and between services inside the VPC?<br>
+      <span class="small" style="color:#cce">HTTPS listener + ACM cert + TLS 1.2+ policy · <code>rds.force_ssl = 1</code> · <code>aws:SecureTransport</code> deny · TLS-only security-group ports + Flow Logs</span></li>
+    <li>You saw what a <em>disabled</em> key does. What breaks the day someone schedules deletion of a customer managed key that's actively in use — and how would you catch it in the 7-day window?</li>
+  </ul>
+</section>
+
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>

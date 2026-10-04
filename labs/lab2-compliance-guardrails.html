@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 2 — Compliance Evidence &amp; Guardrails</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
+  .reveal { font-size: 32px; }
+  .reveal h1 { font-size: 1.8em; }
+  .reveal h2 { font-size: 1.2em; }
+  .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul, .reveal ol { line-height: 1.35; }
+  .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
+  .reveal pre code { padding:12px; font-size:0.55em; line-height:1.3; max-height:600px; }
+  .reveal .small { font-size: 0.72em; color:#555; }
+  .reveal table { font-size: 0.7em; border-collapse: collapse; width: 100%; }
+  .reveal th, .reveal td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; vertical-align: top; }
+  .reveal th { background: #f4f4f4; color: var(--aws-navy); }
+  .reveal .glossary li { font-size: 0.72em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h1,
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] h3,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.55em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide" data-background-color="#FF9900">
+  <span class="lab-tag">Hands-On Lab · 25 min</span>
+  <h1>Lab 2</h1>
+  <h3 style="color:#fff">Compliance Evidence &amp; Guardrails</h3>
+  <p class="small" style="color:#fff">Module 2 — Security OF the Cloud</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🎯 Objective</h2>
+  <ul>
+    <li>Answer an auditor's evidence requests by finding the real evidence pages in the AWS console</li>
+    <li>Decide which evidence AWS provides (inherited controls in AWS Artifact) and which you must produce yourself</li>
+    <li>Review a "locked-down" Service Control Policy, write the guardrails it should contain, and check them with the IAM policy validator</li>
+  </ul>
+  <p class="small">👥 <strong>Shared class account:</strong> everyone works in the same AWS account. Start every resource name with your student ID, and only open, change, or delete resources that start with <em>your</em> ID.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📚 Terms You'll See</h2>
+  <ul class="glossary">
+    <li><strong>AWS Artifact</strong> — console portal for AWS compliance reports (SOC, ISO, PCI) and agreements (BAA)</li>
+    <li><strong>Inherited control</strong> — a control AWS operates that you rely on, evidenced by AWS's reports</li>
+    <li><strong>AWS Health</strong> — dashboard of AWS-side events affecting your account and services</li>
+    <li><strong>Credential report</strong> — IAM-generated CSV listing every IAM user, MFA status, and password/key age</li>
+    <li><strong>CloudTrail Event history</strong> — 90 days of management events, recorded in every account with no setup</li>
+    <li><strong>AWS Organizations</strong> — groups accounts into OUs under one management account</li>
+    <li><strong>OU</strong> (Organizational Unit) — folder of accounts that policies attach to</li>
+    <li><strong>SCP</strong> (Service Control Policy) — sets the maximum permissions for every principal in an account, including its admins</li>
+    <li><strong>Policy validator</strong> — IAM Access Analyzer checks run live in the IAM JSON policy editor</li>
+  </ul>
+</section>
+
+<section style="font-size:41.6px">
+  <h2>⚙️ Before You Start</h2>
+  <ul>
+    <li>Sign in to the class AWS account and set the region selector to <strong>US East (N. Virginia) us-east-1</strong></li>
+    <li>This lab <strong>creates no AWS resources</strong> (generating the credential report is the only change, and it is logged)</li>
+    <li><strong>Shared class account rule:</strong> you will <em>write</em> SCPs and validate them only — <strong>never create, attach, or edit SCPs or any AWS Organizations setting</strong>; that would affect every account in the organization</li>
+    <li>AWS Config, Security Hub, and Audit Manager are not enabled in the class account; treat them as written answers only</li>
+    <li>In AWS Artifact, do <strong>not</strong> accept terms or download reports unless your instructor says to</li>
+  </ul>
+</section>
+
+<section style="font-size:36.8px">
+  <h2>📋 Scenario — "PayLane" SOC 2 Audit</h2>
+  <p class="small">PayLane runs a payments API across six AWS accounts in one AWS Organization. Its SOC 2 auditor sends this request list. Copy the table into your notes. As you work through Task 1, fill in who provides the evidence (<strong>AWS</strong>, <strong>PayLane</strong>, or <strong>Both</strong>) and the console page where you found it.</p>
+  <table>
+    <thead><tr><th>#</th><th>Auditor request</th><th>AWS / PayLane / Both</th><th>Console evidence page</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Physical access controls at the data centers hosting production</td><td></td><td></td></tr>
+      <tr><td>2</td><td>Proof that production databases are encrypted at rest</td><td></td><td></td></tr>
+      <tr><td>3</td><td>Log of all administrative actions in production for the last 90 days</td><td></td><td></td></tr>
+      <tr><td>4</td><td>Media sanitization procedure for failed storage devices</td><td></td><td></td></tr>
+      <tr><td>5</td><td>List of who has admin access to production, and when it was last reviewed</td><td></td><td></td></tr>
+      <tr><td>6</td><td>Patch management for hosts running production workloads (EC2)</td><td></td><td></td></tr>
+      <tr><td>7</td><td>Notification of AWS service events that affected production</td><td></td><td></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section style="font-size:35.2px">
+  <h2>📄 Task 1a — AWS's Side: AWS Artifact</h2>
+  <p class="small">Requests 1, 4, and the AWS half of 6</p>
+  <ol>
+    <li>In the console search bar, open <strong>AWS Artifact</strong></li>
+    <li>In the left navigation, choose <em>Reports</em></li>
+    <li>In the search box, type <code>SOC 2</code></li>
+    <li>Choose <em>System and Organization Controls (SOC) 2 Report</em> and read its description and the period it covers</li>
+    <li>Clear the search, type <code>Continued Operations</code>, and open <em>SOC Continued Operations Letter</em></li>
+    <li>Clear the search, type <code>ISO 27001</code>, and note the <em>ISO 27001:2022 Certification</em> report</li>
+    <li>Do <strong>not</strong> choose <em>Download report</em> or accept any terms</li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> the SOC 2 description reads "The AWS SOC 2 Type 2 report evaluates the AWS controls…" for security, availability, confidentiality, and privacy, covering a 12-month period. All three reports are in the <em>Certifications and Attestations</em> category.</p>
+</section>
+
+<section style="font-size:41.6px">
+  <h2>🩺 Task 1b — AWS Events: AWS Health</h2>
+  <p class="small">Request 7</p>
+  <ol>
+    <li>In the console search bar, open <strong>AWS Health Dashboard</strong></li>
+    <li>In the left navigation, choose <em>Your account health</em></li>
+    <li>Look through the <em>Open and recent issues</em>, <em>Scheduled changes</em>, and <em>Other notifications</em> tabs</li>
+    <li>In the left navigation, choose <em>Event log</em> to see the full history of AWS-side events for your account</li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> the Event log shows AWS-reported events for your account. The class account may show few or none, and that's expected.</p>
+  <p class="small">Ask yourself: AWS shows <em>that</em> an event happened. Where does the evidence that PayLane <em>reviewed and responded</em> come from?</p>
+</section>
+
+<section style="font-size:36.8px">
+  <h2>👤 Task 1c — Your Side: Who Has Admin?</h2>
+  <p class="small">Request 5</p>
+  <ol>
+    <li>Open <strong>IAM</strong>. In the left navigation, under <em>Access reports</em>, choose <em>Credential report</em></li>
+    <li>Choose <em>Download credentials report</em> and open the CSV</li>
+    <li>Find the <code>mfa_active</code>, <code>password_last_used</code>, and <code>access_key_1_last_rotated</code> columns</li>
+    <li>In the left navigation, choose <em>Policies</em> and search for <code>AdministratorAccess</code></li>
+    <li>Open the AWS managed policy <em>AdministratorAccess</em> and choose the <em>Entities attached</em> tab</li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> the CSV starts with a <code>&lt;root_account&gt;</code> row followed by one row per IAM user. IAM reuses a report for up to 4 hours, so users created since then are not listed yet. <em>Entities attached</em> lists every user, group, and role that has full admin access.</p>
+</section>
+
+<section style="font-size:38.4px">
+  <h2>📜 Task 1d — Your Side: Admin Activity Log</h2>
+  <p class="small">Request 3</p>
+  <ol>
+    <li>Open <strong>CloudTrail</strong>. In the left navigation, choose <em>Event history</em></li>
+    <li>In the lookup attribute dropdown (default <em>Read-only</em>), choose <em>Event source</em></li>
+    <li>Enter <code>iam.amazonaws.com</code> and apply the filter</li>
+    <li>Find the <code>GenerateCredentialReport</code> event you triggered in Task 1c (classmates' calls appear too, so match the <em>User name</em> column to your sign-in name), then open it to see who called it, from which IP address, and when</li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> your own <code>GenerateCredentialReport</code> and <code>GetCredentialReport</code> calls appear (IAM events are logged in us-east-1). Events typically appear within about 5 minutes (not guaranteed), so refresh if needed.</p>
+  <p class="small">Event history keeps only 90 days and needs no trail. For audit-grade, long-term evidence, PayLane needs a CloudTrail <em>trail</em> delivered to a central log-archive account.</p>
+</section>
+
+<section style="font-size:36.8px">
+  <h2>🔐 Task 1e — Your Side: Encryption &amp; Patching</h2>
+  <p class="small">Requests 2 and 6</p>
+  <ol>
+    <li>Open <strong>EC2</strong>. In the left navigation, choose <em>Settings</em>, then the <em>Data protection and security</em> tab</li>
+    <li>Read the <em>EBS encryption</em> panel. Do <strong>not</strong> choose <em>Manage</em></li>
+    <li>Open <strong>Systems Manager</strong>. In the left navigation, choose <em>Patch Manager</em></li>
+    <li>If a landing page appears, choose <em>View dashboard</em>; then open the <em>Patch baselines</em> tab and find <code>AWS-AmazonLinux2023DefaultPatchBaseline</code></li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> <em>Always encrypt new EBS volumes</em> shows <strong>Disabled</strong> unless your instructor turned it on. Encryption is a setting <em>you</em> own. The AWS-provided baselines are listed, and the Amazon Linux 2023 baseline is marked as the default. With no managed instances, there is no patch compliance data yet.</p>
+  <p class="small">For RDS, the evidence is the <em>Encryption</em> field on each database's <em>Configuration</em> tab, or an AWS Config rule such as <code>rds-storage-encrypted</code>.</p>
+</section>
+
+<section style="font-size:38.4px">
+  <h2>✅ Task 1 — Sample Answer</h2>
+  <ul class="glossary">
+    <li><strong>1 — AWS:</strong> SOC 2 report in AWS Artifact (physical and environmental security controls)</li>
+    <li><strong>2 — PayLane:</strong> RDS <em>Configuration</em> tab / EBS encryption setting. At scale, the AWS Config rule <code>rds-storage-encrypted</code> or Audit Manager evidence</li>
+    <li><strong>3 — PayLane:</strong> CloudTrail. Event history covers 90 days, and a trail to a central log-archive account provides long-term, tamper-resistant evidence</li>
+    <li><strong>4 — AWS:</strong> SOC 2 / ISO 27001 reports in Artifact (media sanitization and decommissioning controls)</li>
+    <li><strong>5 — PayLane:</strong> IAM credential report, <em>Entities attached</em> on admin policies, and IAM Identity Center assignments, plus your own access-review records</li>
+    <li><strong>6 — Both:</strong> AWS patches the hypervisor and hardware (Artifact). PayLane patches the guest OS (Patch Manager baselines and compliance)</li>
+    <li><strong>7 — Both:</strong> AWS publishes the events (Health Event log). PayLane shows it reviewed and responded (tickets, runbooks)</li>
+  </ul>
+  <p class="small">Rule of thumb: AWS gives you evidence for <em>its</em> side of the line, and you produce the evidence for yours. A SOC report covers a past period, so ask for the Continued Operations Letter (bridge letter) to cover the gap until today.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📜 Task 2 — Review This SCP</h2>
+  <p class="small">Attached to the <code>Production</code> OU. The security lead says it "locks down prod." List at least three problems.</p>
+  <pre><code style="font-size:21.25px;max-height:none">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowEverything",
+      "Effect": "Allow",
+      "Action": "*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ProtectLogging",
+      "Effect": "Deny",
+      "Action": "cloudtrail:DeleteTrail",
+      "Resource": "*"
+    }
+  ]
+}</code></pre>
+</section>
+
+<section style="font-size:40px">
+  <h2>⚠️ Task 2 — Issues</h2>
+  <ul>
+    <li><code>AllowEverything</code> is the same as the default <code>FullAWSAccess</code> SCP — it adds no restriction</li>
+    <li>Only <code>DeleteTrail</code> is denied — an attacker can still run <code>StopLogging</code>, <code>UpdateTrail</code>, or <code>PutEventSelectors</code> to blind you</li>
+    <li>Nothing stops an account from leaving the organization (<code>organizations:LeaveOrganization</code>) to escape the guardrails</li>
+    <li>No region restriction — resources can be created in regions nobody monitors</li>
+    <li>Nothing protects GuardDuty, Config, or Security Hub from being disabled</li>
+    <li>Nothing restricts the root user of member accounts</li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✏️ Task 3 — Write the Guardrails</h2>
+  <p class="small">Write <code>Deny</code> statements for an SCP that does the following. Use the hints only if you get stuck.</p>
+  <ol>
+    <li>Prevent anyone from stopping, deleting, or changing CloudTrail trails</li>
+    <li>Prevent member accounts from leaving the organization</li>
+    <li>Block all actions outside <code>us-east-1</code> and <code>us-west-2</code></li>
+    <li>Prevent GuardDuty detectors from being deleted or disabled</li>
+  </ol>
+  <p class="small"><strong>Hints:</strong> the region key is <code>aws:RequestedRegion</code>. Global services such as IAM, Organizations, and Support are served from <code>us-east-1</code>, so a region deny must exempt them with <code>NotAction</code>. Use <code>aws:PrincipalARN</code> with <code>ArnNotLike</code> to exempt a security role named <code>SecurityAutomation</code>.</p>
+</section>
+
+<section style="font-size:38.4px">
+  <h2>🧪 Task 3 — Validate Your Guardrails</h2>
+  <p class="small">The class account is the organization's management account: <strong>never create or attach an SCP here</strong>. The IAM policy editor runs IAM Access Analyzer checks on any JSON policy, so you can validate without saving anything.</p>
+  <ol>
+    <li>Open <strong>IAM</strong> → <em>Policies</em> → <em>Create policy</em></li>
+    <li>In the <em>Policy editor</em>, choose <em>JSON</em> and replace the contents with your Task 3 Deny statements</li>
+    <li>Read the counts below the editor: <em>Security</em>, <em>Errors</em>, <em>Warnings</em>, <em>Suggestions</em>. Open each finding</li>
+    <li>Fix any errors, then confirm all four counts show 0</li>
+    <li>Now replace the contents with the flawed <strong>Task 2</strong> SCP and read the findings</li>
+    <li>Choose <em>Cancel</em>. Do <strong>not</strong> choose <em>Next</em></li>
+  </ol>
+  <p class="small">Stuck? Paste the sample solutions from the next slides. Both show 0 findings.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✅ Check — What the Validator Reports</h2>
+  <table>
+    <thead><tr><th>Policy pasted</th><th>Findings you should see</th></tr></thead>
+    <tbody>
+      <tr><td>Task 2 SCP (<code>AllowEverything</code>)</td><td><strong>Security 1:</strong> PassRole with star in action and resource<br><strong>Warnings 1:</strong> Create SLR with star in action and resource</td></tr>
+      <tr><td>Sample solutions (1 of 2, 2 of 2)</td><td>0 Security, 0 Errors, 0 Warnings, 0 Suggestions</td></tr>
+      <tr><td>Typo such as <code>cloudtrail:StopLoging</code></td><td><strong>Error:</strong> Invalid action ("The action cloudtrail:StopLoging does not exist.")</td></tr>
+      <tr><td>Typo such as <code>aws:RequestRegion</code></td><td><strong>Error:</strong> Invalid global condition key</td></tr>
+    </tbody>
+  </table>
+  <p class="small">The validator checks <em>grammar</em>, not <em>intent</em>. <code>"Action": "*"</code> denied outside two regions validates with 0 findings, yet it would break IAM, Organizations, and Support. That's why the sample uses <code>NotAction</code>. The two Task 2 findings are identity-policy checks; validated as an SCP, the same JSON shows 0 findings.</p>
+</section>
+
+<section>
+  <h2>✅ Task 3 — Sample Solution (1 of 2)</h2>
+  <p class="small">Protect logging, threat detection, and org membership. The <code>ArnNotLike</code> condition exempts one locked-down security role so the security team can still manage these services.</p>
+  <pre><code style="font-size:20.5px;max-height:none">{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Sid": "ProtectCloudTrail", "Effect": "Deny",
+      "Action": ["cloudtrail:StopLogging", "cloudtrail:DeleteTrail",
+                 "cloudtrail:UpdateTrail", "cloudtrail:PutEventSelectors"],
+      "Resource": "*",
+      "Condition": { "ArnNotLike": {
+        "aws:PrincipalARN": "arn:aws:iam::*:role/SecurityAutomation" } } },
+    { "Sid": "ProtectGuardDuty", "Effect": "Deny",
+      "Action": ["guardduty:DeleteDetector", "guardduty:UpdateDetector",
+                 "guardduty:DisassociateFromAdministratorAccount",
+                 "guardduty:DisassociateFromMasterAccount"],
+      "Resource": "*",
+      "Condition": { "ArnNotLike": {
+        "aws:PrincipalARN": "arn:aws:iam::*:role/SecurityAutomation" } } },
+    { "Sid": "StayInOrg", "Effect": "Deny",
+      "Action": "organizations:LeaveOrganization", "Resource": "*" }
+  ]
+}</code></pre>
+</section>
+
+<section>
+  <h2>✅ Task 3 — Sample Solution (2 of 2)</h2>
+  <p class="small">Region allow-list. The <code>NotAction</code> list is AWS's published set of global services that must stay reachable from any region (source: AWS <em>service-control-policy-examples</em> repository).</p>
+  <pre><code style="font-size:18px;max-height:none">{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Sid": "RegionAllowList", "Effect": "Deny",
+      "NotAction": [
+        "a4b:*", "acm:*", "aws-marketplace-management:*", "aws-marketplace:*",
+        "aws-portal:*", "budgets:*", "ce:*", "chime:*", "cloudfront:*", "config:*",
+        "cur:*", "directconnect:*", "ec2:DescribeRegions", "ec2:DescribeTransitGateways",
+        "ec2:DescribeVpnGateways", "fms:*", "globalaccelerator:*", "health:*", "iam:*",
+        "importexport:*", "kms:*", "mobileanalytics:*", "networkmanager:*",
+        "organizations:*", "pricing:*", "route53:*", "route53domains:*",
+        "route53-recovery-cluster:*", "route53-recovery-control-config:*",
+        "route53-recovery-readiness:*", "s3:GetAccountPublic*", "s3:ListAllMyBuckets",
+        "s3:ListMultiRegionAccessPoints", "s3:PutAccountPublic*", "shield:*", "sts:*",
+        "support:*", "trustedadvisor:*", "waf-regional:*", "waf:*", "wafv2:*",
+        "wellarchitected:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": { "aws:RequestedRegion": ["us-east-1", "us-west-2"] },
+        "ArnNotLike": { "aws:PrincipalARN": "arn:aws:iam::*:role/SecurityAutomation" } } }
+  ]
+}</code></pre>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🛡️ Optional — Trusted Advisor Security Checks</h2>
+  <p class="small">If you have time left: automated evidence for <em>your</em> side of the line</p>
+  <ol>
+    <li>Open <strong>Trusted Advisor</strong>. In the left navigation, choose <em>Security</em></li>
+    <li>Review the core security checks available on every support plan, such as <em>MFA on root account</em>, <em>Security Groups – Specific Ports Unrestricted</em>, and <em>Amazon S3 Bucket Permissions</em></li>
+    <li>Open one check and read what it evaluates and its recommended action</li>
+  </ol>
+  <p class="small"><strong>✅ Check:</strong> each check shows a status (green, yellow/red, or not yet checked). Do not change any settings.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🧹 Cleanup</h2>
+  <p class="small">This lab created no AWS resources. Confirm that, and remove local copies of evidence.</p>
+  <ol>
+    <li><strong>IAM</strong> → <em>Policies</em> → set the <em>Filter by Type</em> to <em>Customer managed</em>. Confirm there's no policy you created (you chose <em>Cancel</em>)</li>
+    <li>Delete the downloaded credential report CSV from your computer. It lists account users and security details</li>
+    <li>If your instructor had you download an Artifact report, delete it as well. Artifact reports are confidential under the AWS terms you accepted</li>
+  </ol>
+</section>
+
+<section data-background-color="#146EB4" style="font-size:43.2px">
+  <h2>💬 Discussion</h2>
+  <ul>
+    <li>Which auditor requests could you answer in minutes today, and which would take days?</li>
+    <li>CloudTrail Event history covers 90 days. What changes when the auditor asks for 12 months?</li>
+    <li>Why can't an SCP grant permissions? What does that mean for how you debug an "Access Denied"?<br>
+      <span class="small" style="color:#cce">An SCP only sets the ceiling. IAM policies still have to allow the action</span></li>
+    <li>The validator showed 0 findings for a region deny that would break IAM. How would you test guardrails in a test OU before attaching them to production?</li>
+  </ul>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>

@@ -40,7 +40,7 @@
   <p class="small">Design principles &amp; the Shared Responsibility Model</p>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🎯 Course Goals</h2>
   <ul>
     <li>Explain the security benefits and responsibilities of using the AWS Cloud</li>
@@ -48,11 +48,12 @@
     <li>Explain encryption options for data in transit and at rest</li>
     <li>Describe how to secure network access to AWS resources</li>
     <li>Identify AWS services used for monitoring and incident response</li>
+    <li>Run a mini Well-Architected security review and turn findings into a roadmap</li>
   </ul>
-  <p class="small">Introductory-level, lab-heavy — about 50% of class time is hands-on.</p>
+  <p class="small">Introductory-level, lab-heavy — about 70% of class time is hands-on.</p>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🌩️ What Makes Cloud Security Different</h2>
   <ul>
     <li>The perimeter is an <strong>API</strong>, not a data-center door — every control is an API call with an audit log</li>
@@ -63,7 +64,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🏛️ AWS Security Design Principles</h2>
   <p class="small">From the Well-Architected Security Pillar.</p>
   <ul>
@@ -77,7 +78,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🤝 The Shared Responsibility Model</h2>
   <p class="small">A foundational AWS concept: the security line depends on the service.</p>
   <div class="split">
@@ -102,7 +103,7 @@
   </div>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>📐 The Line Shifts by Service</h2>
   <ul>
     <li><strong>EC2 (IaaS)</strong> — AWS secures host &amp; hypervisor; <em>you</em> patch the OS, harden the image, own network rules</li>
@@ -112,7 +113,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🔗 The AWS Shared <em>Controls</em> Model</h2>
   <p class="small">Some controls are shared — both sides play a part.</p>
   <ul>
@@ -123,7 +124,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🧰 Common AWS Security Services You'll Meet Today</h2>
   <ul class="glossary">
     <li><strong>IAM</strong> (Identity and Access Management) — who can do what on which resources</li>
@@ -138,23 +139,24 @@
   </ul>
 </section>
 
-<section>
-  <h2>🗺️ How to Read the Rest of the Day</h2>
+<section style="font-size:38.4px">
+  <h2>🔎 Defaults You'll Inspect in Lab 1</h2>
   <ul>
-    <li>Module 2 — <strong>Security OF the Cloud</strong>: AWS's side of the line</li>
-    <li>Modules 3–5 — <strong>Security IN the Cloud</strong>: your side, in three parts (identity &amp; data → infra &amp; detection → DDoS &amp; IR)</li>
-    <li>Module 6 — <strong>Wrap-up</strong>: Well-Architected tool and next steps</li>
-    <li>Six hands-on labs — paper-based analysis plus read-only AWS Console navigation</li>
+    <li><strong>S3</strong> — every new object is encrypted with <strong>SSE-S3</strong> (S3-managed keys); <strong>Block Public Access</strong> is on and ACLs are disabled (<em>Object Ownership: bucket owner enforced</em>); the <strong>bucket policy</strong> — who can access — is yours</li>
+    <li><strong>Lambda</strong> — AWS patches the runtime (<em>runtime management</em>, update mode <em>Auto</em>); the <strong>execution role</strong> (an IAM role the function runs as) and your code are yours; <strong>CloudWatch Logs</strong> retention defaults to <em>Never expire</em> — your choice to change</li>
+    <li><strong>EC2</strong> — you choose the AMI (guest OS you patch), key pair, VPC/subnet, <strong>EBS volume encryption</strong>, and the instance metadata version (<strong>IMDSv2</strong> = token required)</li>
+    <li>AWS normally creates a <strong>default VPC</strong> in every Region; the class account's has been removed, so every network is one you build</li>
   </ul>
 </section>
 
-<section data-background-color="#FF9900">
+<section data-background-color="#FF9900" style="font-size:43.2px">
   <span class="lab-tag">Hands-On Lab · 30 min</span>
   <h2>Lab 1 — Shared Responsibility Matrix</h2>
   <ul>
-    <li>Walk through three real workloads</li>
-    <li>Decide which side of the line each control sits on</li>
-    <li>Spot the controls that are genuinely <em>shared</em></li>
+    <li>Create an S3 bucket, see what AWS secures by default, then try to make it public</li>
+    <li>Run a Lambda function: who patches the runtime, who owns its role and logs?</li>
+    <li>Walk the EC2 launch wizard (no launch) and list the decisions that are yours</li>
+    <li>Use your evidence to place each control as AWS, Customer, or Shared</li>
   </ul>
   <p class="small"><code>labs/lab1-shared-responsibility.html</code></p>
 </section>

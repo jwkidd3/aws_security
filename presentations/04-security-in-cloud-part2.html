@@ -38,7 +38,7 @@
   <p class="small">Securing infrastructure · Monitoring &amp; detective controls</p>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🧅 Defense in Depth, Revisited</h2>
   <p class="small">No single control is enough. Layer them.</p>
   <ul>
@@ -51,7 +51,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🌐 VPC — Your Private Network</h2>
   <ul>
     <li><strong>VPC</strong> — a logically isolated network in AWS, spanning multiple AZs</li>
@@ -62,39 +62,32 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:35.2px">
   <h2>🚧 Security Groups vs. NACLs</h2>
   <ul>
     <li><strong>Security group</strong> — per-ENI firewall, <em>stateful</em> (return traffic auto-allowed), default-deny inbound</li>
-    <li><strong>NACL</strong> (Network Access Control List) — per-subnet, <em>stateless</em>, numbered rules, default-allow — rarely needed beyond defaults</li>
+    <li><strong>NACL</strong> (Network Access Control List) — per-subnet, <em>stateless</em>, numbered rules evaluated lowest-first; the VPC's <em>default</em> NACL allows all, a <em>new custom</em> NACL denies all until you add rules</li>
     <li><strong>SG rules can reference other SGs</strong> — the cleanest way to express "app may reach DB"</li>
+    <li>NACLs earn their keep as a subnet-level backstop and for explicit <em>deny</em> rules (e.g., block a bad IP range) — security groups can only allow</li>
+    <li><strong>AWS WAF</strong> works above both — L7 rules on ALB, API Gateway, CloudFront that block SQLi, XSS, and floods via rate-based rules (more in Module 5)</li>
     <li>Audit tip: any SG allowing <code>0.0.0.0/0</code> on a non-web port is worth a second look</li>
   </ul>
 </section>
 
-<section>
+<section style="font-size:35.2px">
   <h2>🔗 Private Connectivity — No Internet Required</h2>
   <ul>
     <li><strong>VPC endpoint — Interface</strong> (PrivateLink) — a private ENI in your subnet for an AWS service or SaaS</li>
     <li><strong>VPC endpoint — Gateway</strong> — S3 and DynamoDB only, added to a route table</li>
+    <li><strong>Endpoint policies</strong> limit what can pass through an endpoint — e.g., <code>aws:ResourceAccount</code> / <code>aws:ResourceOrgID</code> = only your account's or org's buckets; a gateway endpoint adds a route to a <strong>managed prefix list</strong> (<code>pl-…</code>) of S3 addresses</li>
     <li><strong>Transit Gateway</strong> — hub-and-spoke routing between many VPCs and on-prem</li>
     <li><strong>Direct Connect / Site-to-Site VPN</strong> — private links back to corporate data centers</li>
+    <li><strong>AWS Network Firewall</strong> — deep packet inspection and domain-aware egress filtering for the whole VPC</li>
     <li>Keeping AWS-service traffic off the public internet is both a security and a cost win</li>
   </ul>
 </section>
 
-<section>
-  <h2>🛡️ Web &amp; Edge Protection</h2>
-  <ul>
-    <li><strong>AWS WAF</strong> — L7 rules blocking SQLi, XSS, bad bots, rate abuse; attached to ALB, API Gateway, CloudFront, AppSync</li>
-    <li><strong>AWS Shield Standard</strong> — free, on by default, L3/L4 DDoS protection at the edge</li>
-    <li><strong>AWS Shield Advanced</strong> — paid; 24×7 DRT access, cost protection, L7 protection</li>
-    <li><strong>CloudFront</strong> — CDN that absorbs volumetric traffic and terminates TLS near users</li>
-    <li><strong>AWS Network Firewall</strong> — deep-inspection, domain-aware egress filtering</li>
-  </ul>
-</section>
-
-<section>
+<section style="font-size:38.4px">
   <h2>💪 Host &amp; Workload Hardening</h2>
   <ul>
     <li><strong>SSM Session Manager</strong> — browser-based shell into EC2 — no SSH keys, no open port 22, full audit log</li>
@@ -105,7 +98,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>📊 Monitoring — The Foundational Logs</h2>
   <ul>
     <li><strong>CloudTrail</strong> — every control-plane API call in the account, persisted to S3; enable in all regions &amp; all accounts, deliver to a central log account</li>
@@ -116,18 +109,18 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🔍 Detective Controls</h2>
   <p class="small"><em>Detective controls</em> find problems <em>after</em> they happen so you can respond.</p>
   <ul>
-    <li><strong>GuardDuty</strong> — threat detection on CloudTrail, VPC Flow, DNS, EKS, S3, Malware, RDS — no agents</li>
+    <li><strong>GuardDuty</strong> — threat detection on CloudTrail, VPC Flow, DNS, EKS, S3, Malware, RDS — no agents for the foundational sources (Runtime Monitoring adds one)</li>
     <li><strong>Security Hub</strong> — aggregates findings from GuardDuty, Inspector, Macie, Config, partners; scores against CIS, PCI, AWS FSBP</li>
     <li><strong>AWS Config</strong> — continuous resource inventory + rules ("no unencrypted EBS," "MFA on root")</li>
     <li><strong>Detective</strong> — graph-based investigation across CloudTrail &amp; VPC flows</li>
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>⚡ Turning Detection into Response</h2>
   <ul>
     <li><strong>EventBridge</strong> — route a GuardDuty or Security Hub finding to a <strong>Lambda</strong>, <strong>SSM runbook</strong>, or ticket</li>
@@ -137,15 +130,16 @@
   </ul>
 </section>
 
-<section data-background-color="#FF9900">
-  <span class="lab-tag">Hands-On Lab · 35 min</span>
-  <h2>Lab 4 — Network Security Design</h2>
+<section data-background-color="#FF9900" style="font-size:43.2px">
+  <span class="lab-tag">Hands-On Lab · 45 min</span>
+  <h2>Lab 5 — Network Security Design</h2>
   <ul>
-    <li>Design a VPC for a 3-tier app: ALB, app, RDS</li>
-    <li>Write the security-group rules as an SG-to-SG reference graph</li>
-    <li>Spot the mistakes in a given VPC/SG configuration</li>
+    <li>Build a 3-tier VPC with the <em>VPC and more</em> wizard — public, app, and DB subnets plus an S3 gateway endpoint</li>
+    <li>Create the SG-to-SG chain: ALB → app :8080 → DB :5432</li>
+    <li>Find the mistakes in a flawed design, then lock down the S3 endpoint with a policy</li>
+    <li>Block a bad IP range with a NACL and choose SG vs. NACL vs. WAF</li>
   </ul>
-  <p class="small"><code>labs/lab4-network-security.html</code></p>
+  <p class="small"><code>labs/lab5-network-security.html</code></p>
 </section>
 
 </div></div>

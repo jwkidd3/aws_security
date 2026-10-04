@@ -39,7 +39,7 @@
   <p class="small">Identity &amp; Access Management · Data Protection Essentials</p>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>👤 IAM — Authn, Authz &amp; Building Blocks</h2>
   <p class="small"><strong>Authentication</strong> = who are you? · <strong>Authorization</strong> = what can you do? IAM handles both; most policy work is authz.</p>
   <ul class="glossary">
@@ -51,7 +51,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🪪 Identity Federation &amp; IAM Identity Center</h2>
   <ul>
     <li><strong>IAM Identity Center</strong> (formerly AWS SSO) — central sign-on across all AWS accounts</li>
@@ -62,7 +62,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🗝️ Root Account &amp; MFA</h2>
   <ul>
     <li>The <strong>root user</strong> is the original all-powerful account — lock it away</li>
@@ -73,9 +73,9 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>📜 Anatomy of an IAM Policy</h2>
-  <pre><code>{
+  <pre><code style="font-size:21.25px;max-height:none">{
   "Effect": "Allow",
   "Action": "s3:GetObject",
   "Resource": "arn:aws:s3:::reports-prod/*",
@@ -92,7 +92,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:41.6px">
   <h2>🎯 Least Privilege &amp; Policy Tooling</h2>
   <ul>
     <li><strong>Least privilege</strong> — grant only the actions actually used, on the specific resources needed</li>
@@ -103,71 +103,105 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>📎 Resource-Based Policies</h2>
   <p class="small">Policies attached <em>to the resource</em> rather than the principal — cross-account access without assumed roles.</p>
   <ul>
     <li><strong>S3 bucket policies</strong> — who can read/write objects in this bucket</li>
     <li><strong>KMS key policies</strong> — who can use this key (required, not optional)</li>
     <li><strong>SQS / SNS / Lambda resource policies</strong> — allow other accounts or services to invoke</li>
-    <li>A request is allowed if <em>either</em> side allows it — unless there is an explicit Deny</li>
+    <li>Same account: either the identity policy or the resource policy can allow. Cross-account: <em>both</em> must allow. An explicit Deny always wins</li>
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
+  <h2>⚖️ How IAM Decides — and How to Test It</h2>
+  <ul>
+    <li><strong>Implicit deny</strong> by default → an <strong>Allow</strong> grants → an <strong>explicit Deny</strong> overrides everything</li>
+    <li>A role has two policies: a <strong>trust policy</strong> (who may assume it, e.g., <code>ec2.amazonaws.com</code>) and <strong>permissions policies</strong> (what it can do)</li>
+    <li><strong>AWS managed</strong> policies are written by AWS; <strong>customer managed</strong> policies are yours to scope</li>
+    <li><code>iam:PassRole</code> lets a principal hand a role to a service — broad PassRole = privilege escalation</li>
+    <li>Test before you deploy: the IAM policy editor's <strong>Access Analyzer validation</strong>, and the IAM <strong>Policy simulator</strong></li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🪣 S3 Access Guardrails</h2>
+  <ul>
+    <li><strong>S3 Block Public Access</strong> — on by default for new buckets; S3 rejects a bucket policy that would make the bucket public</li>
+    <li>Bucket-policy principals must exist — S3 rejects unknown accounts or roles ("Invalid principal")</li>
+    <li>Deny any request where <code>aws:SecureTransport</code> is <code>false</code> → TLS-only bucket</li>
+    <li><strong>AWS CloudShell</strong> — a browser terminal (console icon, top bar) with the AWS CLI, signed in as you; labs use it to send test requests</li>
+  </ul>
+</section>
+
+<section data-background-color="#FF9900" style="font-size:43.2px">
+  <span class="lab-tag">Hands-On Lab · 40 min</span>
+  <h2>Lab 3 — IAM Least Privilege Review</h2>
+  <ul>
+    <li>Build an over-broad app role and see what the IAM policy validator flags</li>
+    <li>Prove the damage in the Policy simulator, then swap in a least-privilege policy and re-test</li>
+    <li>Watch implicit deny and an explicit region Deny take effect</li>
+    <li>Review a risky S3 bucket policy and decide how to fix it</li>
+  </ul>
+  <p class="small"><code>labs/lab3-iam-least-privilege.html</code></p>
+</section>
+
+<section style="font-size:38.4px">
   <h2>🛡️ Data Protection — The Big Picture</h2>
   <ul>
-    <li><strong>Classify</strong> first — Public, Internal, Confidential, Restricted — controls follow the class</li>
-    <li><strong>Encrypt at rest</strong> — most AWS services encrypt by default; you choose <em>which key</em></li>
+    <li><strong>Classify</strong> first — Public, Internal, Confidential, Restricted — controls follow the class. <strong>Amazon Macie</strong> scans S3 to find sensitive data (PII, PHI, credentials) you didn't know you had</li>
+    <li><strong>Encrypt at rest</strong> — most AWS services encrypt by default; you choose <em>which key</em> — and can enforce it with bucket policies that deny uploads using the wrong key</li>
     <li><strong>Encrypt in transit</strong> — TLS everywhere, including between services inside your VPC</li>
     <li><strong>Limit direct access</strong> — pull data through APIs, not through human console sessions</li>
     <li><strong>Protect backups</strong> — encrypted, versioned, tested, and often in a separate account</li>
   </ul>
 </section>
 
-<section>
+<section style="font-size:38.4px">
   <h2>🔐 KMS — Key Management Service</h2>
   <ul>
-    <li><strong>KMS key</strong> (formerly CMK) — the logical key you grant usage of via key policies</li>
-    <li><strong>AWS-managed key</strong> — AWS creates and controls; simple, no extra cost</li>
-    <li><strong>Customer-managed key (CMK)</strong> — you own the key policy, rotation, grants, audit</li>
+    <li><strong>KMS key</strong> — the logical key you grant usage of via key policies (AWS used to call these "customer master keys," or CMKs)</li>
+    <li><strong>AWS managed key</strong> — AWS creates and controls (e.g., <code>aws/s3</code>); simple, no monthly fee, can't be shared across accounts</li>
+    <li><strong>Customer managed key</strong> — you own the key policy, rotation, grants, audit</li>
     <li><strong>CloudHSM-backed key</strong> — a KMS key whose material lives in a dedicated hardware security module (HSM) cluster you own, rather than in shared KMS infrastructure — reach for it only when regulation (e.g., certain finance or gov workloads) requires single-tenant key hardware</li>
     <li><strong>Envelope encryption</strong> — KMS encrypts a per-object data key; the data key encrypts the data. Efficient at scale.</li>
     <li>Every use of a KMS key is logged in <strong>CloudTrail</strong></li>
   </ul>
 </section>
 
-<section>
+<section style="font-size:40px">
   <h2>🔒 Encryption in Transit &amp; Secrets</h2>
   <ul>
-    <li><strong>TLS</strong> on every endpoint — AWS public endpoints already require HTTPS; pin TLS 1.2+</li>
+    <li><strong>TLS</strong> on every endpoint — AWS APIs support TLS 1.2+, but some endpoints (e.g., S3) still accept plain HTTP — enforce TLS with <code>aws:SecureTransport</code></li>
     <li><strong>ACM</strong> — free public certs with auto-renewal for ELB, CloudFront, API Gateway</li>
-    <li>Enforce in-transit encryption on databases too (SSL on RDS, TLS on Redis)</li>
+    <li>Enforce in-transit encryption on databases too (<code>rds.force_ssl</code> on RDS, TLS on Redis) and on S3 (deny requests where <code>aws:SecureTransport</code> is <code>false</code>)</li>
     <li><strong>Secrets Manager</strong> — store &amp; auto-rotate secrets; workloads fetch via IAM role at runtime</li>
     <li><strong>Never</strong> commit credentials to code, env files, or AMIs</li>
   </ul>
 </section>
 
-<section data-background-color="#FF9900">
-  <span class="lab-tag">Hands-On Lab · 35 min</span>
-  <h2>Lab 2 — IAM Least Privilege Review</h2>
+<section style="font-size:36.8px">
+  <h2>🧰 S3, KMS &amp; RDS in Practice</h2>
   <ul>
-    <li>Read a real-looking IAM policy</li>
-    <li>List the violations</li>
-    <li>Rewrite it scoped to the actions and resources the app actually needs</li>
+    <li>S3 encryption types: <strong>SSE-S3</strong> (S3-managed keys) · <strong>SSE-KMS</strong> (a KMS key you choose) · DSSE-KMS (dual-layer)</li>
+    <li><strong>S3 Bucket Keys</strong> — a bucket-level data key that cuts KMS requests and cost for SSE-KMS</li>
+    <li>Policy condition operators: <code>StringNotEquals</code>, <code>…IfExists</code> (also matches when the key is absent), <code>Null</code> (is the key present?); <code>kms:ViaService</code> limits a key to one service</li>
+    <li><strong>Disable</strong> a KMS key → decrypts fail immediately; <strong>delete</strong> requires a 7–30 day waiting period</li>
+    <li>RDS <strong>parameter groups</strong> hold engine settings: PostgreSQL <code>rds.force_ssl</code> (default 1 on 15+) and <code>ssl_min_protocol_version</code>; MySQL <code>require_secure_transport</code></li>
   </ul>
-  <p class="small"><code>labs/lab2-iam-least-privilege.html</code></p>
 </section>
 
-<section data-background-color="#FF9900">
-  <span class="lab-tag">Hands-On Lab · 30 min</span>
-  <h2>Lab 3 — Data Protection &amp; KMS</h2>
+<section data-background-color="#FF9900" style="font-size:43.2px">
+  <span class="lab-tag">Hands-On Lab · 35 min</span>
+  <h2>Lab 4 — Data Protection &amp; KMS</h2>
   <ul>
-    <li>Pick encryption choices for S3, RDS, EBS, and Secrets Manager in a fictional workload</li>
-    <li>Decide when an AWS-managed key is enough vs. a customer-managed key</li>
-    <li>Review a KMS key policy for over-broad grants</li>
+    <li>Create a customer managed KMS key and compare its key policy with a dangerous one</li>
+    <li>Encrypt an S3 bucket with your key and write a policy that blocks wrong-key and non-TLS requests</li>
+    <li>Prove the policy from CloudShell — five uploads, predicted then tested</li>
+    <li>Disable the key and watch access to the data stop</li>
   </ul>
-  <p class="small"><code>labs/lab3-data-protection.html</code></p>
+  <p class="small"><code>labs/lab4-data-protection.html</code></p>
 </section>
 
 </div></div>

@@ -20,9 +20,15 @@
   .reveal ul { line-height: 1.35; }
   .reveal .small { font-size: 0.7em; color:#555; }
   .reveal .glossary li { font-size: 0.78em; margin-bottom: 4px; }
+  .reveal .glossary strong { color: var(--aws-navy); }
   .reveal section[data-background-color] h2,
   .reveal section[data-background-color] p,
   .reveal section[data-background-color] li { color: #fff; }
+  .reveal .split { display:grid; grid-template-columns:1fr 1fr; gap:14px 30px; font-size:0.9em; }
+  .reveal .split div { border-left:4px solid var(--aws-orange); padding-left:10px; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.6em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
 </style>
 </head>
 <body>
@@ -34,7 +40,7 @@
   <p class="small">What AWS handles for you — and the evidence you can inherit.</p>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🌍 AWS Global Infrastructure</h2>
   <ul>
     <li><strong>Region</strong> — a geographic area (e.g., <code>us-east-1</code>); data stays in-region unless you move it</li>
@@ -45,7 +51,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:41.6px">
   <h2>🏢 Data Center Security</h2>
   <p class="small">Controls AWS runs on your behalf — you don't configure these, you <em>inherit</em> them.</p>
   <ul>
@@ -57,7 +63,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>🌐 Network Security at the Infrastructure Layer</h2>
   <ul>
     <li>All traffic between AZs travels over AWS's own fiber, not the public internet</li>
@@ -67,7 +73,7 @@
   </ul>
 </section>
 
-<section>
+<section style="font-size:43.2px">
   <h2>📋 Compliance &amp; Governance</h2>
   <p class="small">AWS maintains dozens of third-party attestations. You <em>inherit</em> the infrastructure controls.</p>
   <ul>
@@ -80,46 +86,63 @@
   </ul>
 </section>
 
-<section>
-  <h2>📄 AWS Artifact</h2>
+<section style="font-size:43.2px">
+  <h2>📄 AWS Artifact &amp; AWS Health</h2>
   <ul>
-    <li>Self-serve portal in the AWS Console for downloading AWS compliance reports</li>
-    <li>Download SOC reports, ISO certificates, PCI AOC, FedRAMP packages, and more</li>
+    <li><strong>AWS Artifact</strong> — self-serve console portal for AWS compliance reports: SOC reports, ISO certificates, PCI AOC, FedRAMP packages</li>
     <li>Sign AWS-offered agreements (BAA for HIPAA, NDAs) in-place</li>
-    <li>Auditors asking <em>"show me the SOC 2"</em>? That's Artifact</li>
+    <li>Auditors asking "show me the SOC 2"? That's Artifact — evidence for <em>AWS's</em> side of the line</li>
+    <li><strong>AWS Health</strong> — AWS-side events affecting your account: service issues, scheduled maintenance, and security notices such as an access key exposed on a public site</li>
+    <li>Your side of the line needs <em>your</em> evidence: CloudTrail, Config, Audit Manager</li>
   </ul>
 </section>
 
-<section>
+<section style="font-size:38.4px">
   <h2>🏛️ Governance Services — Your Side</h2>
   <p class="small">AWS provides the evidence; you provide the organization-wide policy.</p>
   <ul>
     <li><strong>AWS Organizations</strong> — multi-account management under a single billing root</li>
-    <li><strong>Service Control Policies (SCPs)</strong> — account-wide guardrails; even an admin can't exceed them</li>
-    <li><strong>Control Tower</strong> — opinionated landing zone with built-in guardrails</li>
+    <li><strong>Service Control Policies (SCPs)</strong> — account-wide guardrails; even an admin can't exceed them. SCPs only <em>limit</em> — they never grant — and they don't apply to the management account or to service-linked roles</li>
+    <li>Common SCPs: region allow-list, deny leaving the org, deny disabling CloudTrail / GuardDuty</li>
+    <li><strong>Control Tower</strong> — opinionated multi-account landing zone (log archive, security tooling, workload OUs) with built-in guardrails</li>
     <li><strong>AWS Config</strong> — continuous configuration tracking and rule-based compliance</li>
     <li><strong>Audit Manager</strong> — continuously collects evidence mapped to frameworks (PCI, HIPAA, CIS…)</li>
   </ul>
 </section>
 
-<section>
-  <h2>🗂️ Multi-Account Strategy (Quick Tour)</h2>
+<section style="font-size:38.4px">
+  <h2>🧾 Evidence You Produce Yourself</h2>
   <ul>
-    <li>Separate accounts are the strongest AWS isolation boundary — blast radius, billing, and audit scope all shrink</li>
-    <li>Common structure: <em>management</em>, <em>log archive</em>, <em>security tooling</em>, <em>prod</em>, <em>non-prod</em>, <em>sandbox</em> OUs</li>
-    <li>SCPs applied at the OU level enforce region allow-lists, deny-root-user, prohibit public S3, etc.</li>
-    <li>Central logs and security findings flow into dedicated security accounts</li>
+    <li><strong>CloudTrail Event history</strong> — 90 days of management events per Region, on by default, no trail needed; create a <em>trail</em> to keep logs longer</li>
+    <li><strong>IAM credential report</strong> — every user, password and access-key age, MFA status (IAM regenerates it at most every 4 hours)</li>
+    <li><strong>EBS encryption by default</strong> — an account-and-Region setting that encrypts every new volume</li>
+    <li><strong>Systems Manager Patch Manager</strong> — patch baselines and patch-compliance data for your instances</li>
+    <li><strong>Trusted Advisor</strong> — automated checks such as root MFA and open security groups</li>
+    <li>SOC reports cover a <em>past</em> period — the <strong>SOC Continued Operations (bridge) Letter</strong> covers the gap since</li>
   </ul>
 </section>
 
-<section>
-  <h2>✅ Key Takeaways</h2>
+<section style="font-size:43.2px">
+  <h2>📜 Reading &amp; Writing an SCP</h2>
   <ul>
-    <li>AWS secures the <strong>physical, network, and virtualization</strong> layers — you inherit those controls with evidence in Artifact</li>
-    <li>You still own <strong>configuration, identity, data, and operations</strong> in your accounts</li>
-    <li>Governance tools (Organizations, SCPs, Config, Control Tower) are where your side of the line becomes <em>enforceable</em></li>
-    <li>Next: the first part of <em>Security IN the Cloud</em> — identity and data protection</li>
+    <li>Same JSON as IAM policies: each statement has <code>Effect</code>, <code>Action</code>, <code>Resource</code>, optional <code>Condition</code></li>
+    <li>Guardrails are <code>Deny</code> statements — an explicit Deny always wins</li>
+    <li><code>NotAction</code> + Deny = "deny everything <em>except</em> these actions" (e.g., exempt global services from a Region rule)</li>
+    <li>Condition keys add context: <code>aws:RequestedRegion</code> (where), <code>aws:PrincipalARN</code> with <code>ArnNotLike</code> (exempt one security role)</li>
+    <li>The IAM policy editor runs <strong>IAM Access Analyzer policy validation</strong> — it catches bad action names and condition keys, not bad <em>intent</em></li>
   </ul>
+</section>
+
+<section data-background-color="#FF9900" style="font-size:43.2px">
+  <span class="lab-tag">Hands-On Lab · 25 min</span>
+  <h2>Lab 2 — Compliance Evidence &amp; Guardrails</h2>
+  <ul>
+    <li>Find auditor evidence in the console: Artifact SOC 2, Health, IAM credential report, CloudTrail</li>
+    <li>Sort each piece of evidence: AWS's side, yours, or both</li>
+    <li>Find the gaps in a "locked-down" SCP and write the guardrails it should have had</li>
+    <li>Check your guardrails with the IAM policy validator — and see what it can't catch</li>
+  </ul>
+  <p class="small"><code>labs/lab2-compliance-guardrails.html</code></p>
 </section>
 
 </div></div>

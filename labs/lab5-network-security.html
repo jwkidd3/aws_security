@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 5 — Network Security Design</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
+  .reveal { font-size: 32px; }
+  .reveal h1 { font-size: 1.8em; }
+  .reveal h2 { font-size: 1.2em; }
+  .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul, .reveal ol { line-height: 1.35; }
+  .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
+  .reveal pre code { padding:12px; font-size:0.55em; line-height:1.3; }
+  .reveal .small { font-size: 0.72em; color:#555; }
+  .reveal table { font-size: 0.7em; border-collapse: collapse; width: 100%; }
+  .reveal th, .reveal td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; vertical-align: top; }
+  .reveal th { background: #f4f4f4; color: var(--aws-navy); }
+  .reveal .glossary li { font-size: 0.72em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h1,
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] h3,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.55em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide" data-background-color="#FF9900">
+  <span class="lab-tag">Hands-On Lab · 45 min</span>
+  <h1>Lab 5</h1>
+  <h3 style="color:#fff">Network Security Design</h3>
+  <p class="small" style="color:#fff">Module 4 — Security IN the Cloud · Part 2</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🎯 Objective</h2>
+  <p>Build a real VPC for a 3-tier web app in the AWS console, wire up a security-group reference graph, review a flawed configuration, lock down an S3 gateway endpoint with an endpoint policy, and add a NACL deny rule — then decide which network control fits which job.</p>
+  <p class="small">You will not launch instances, databases, load balancers, or NAT gateways. Everything you build here is free and is deleted at the end.</p>
+  <p class="small">👥 <strong>Shared class account:</strong> everyone works in the same AWS account. Start every resource name with your student ID, and only open, change, or delete resources that start with <em>your</em> ID.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📚 Terms You'll See</h2>
+  <ul class="glossary">
+    <li><strong>VPC</strong> — your isolated virtual network in AWS</li>
+    <li><strong>Subnet</strong> — slice of the VPC's IP range tied to one AZ</li>
+    <li><strong>IGW</strong> (Internet Gateway) — route target that makes a subnet public</li>
+    <li><strong>NAT Gateway</strong> — egress-only internet for private subnets</li>
+    <li><strong>Route table</strong> — rules that decide where a subnet's traffic goes</li>
+    <li><strong>Prefix list</strong> — named set of CIDRs; AWS publishes one for S3 per region</li>
+    <li><strong>Security group</strong> — stateful firewall on an ENI; default-deny inbound, allow rules only</li>
+    <li><strong>NACL</strong> — stateless subnet firewall; numbered allow <em>and</em> deny rules</li>
+    <li><strong>VPC endpoint</strong> — private path from your VPC to AWS services (Gateway or Interface)</li>
+    <li><strong>Endpoint policy</strong> — resource policy on a VPC endpoint limiting what can pass through it</li>
+    <li><strong>ALB</strong> — Application Load Balancer (L7)</li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🏗️ Scenario — 3-Tier Web App</h2>
+  <ul>
+    <li>Public ALB terminates HTTPS</li>
+    <li>App tier: auto-scaling EC2 in private subnets, one region, two AZs</li>
+    <li>Data tier: RDS PostgreSQL, Multi-AZ, no public endpoint</li>
+    <li>App needs to reach S3 and Secrets Manager</li>
+    <li>Engineers connect via SSM Session Manager — no SSH keys</li>
+  </ul>
+  <p class="small">You will build the network for this app. The compute and database are described, not launched.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🗺️ Task 1 — Plan the Subnet Layout</h2>
+  <p>Before you build, answer these in your notes:</p>
+  <ol>
+    <li>How many subnets do you need at minimum?</li>
+    <li>Which subnets get an IGW route, which get a NAT route, and which get <em>no</em> internet route?</li>
+    <li>How do the app instances reach S3 without going through a NAT Gateway?</li>
+    <li>How do engineers get a shell on an instance with no public IP, no bastion, no SSH?</li>
+  </ol>
+  <p class="small">Keep your answers — you will compare them with what you build and with the answer slide.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🛠️ Task 1 — Build the VPC (1/2)</h2>
+  <p class="small">⚠️ Region: <strong>US East (N. Virginia) us-east-1</strong> for the entire lab. Check the Region selector (top right) now.</p>
+  <ol>
+    <li>Open <strong>VPC</strong> → <em>Your VPCs</em> → <em>Create VPC</em></li>
+    <li><em>Resources to create</em>: <em>VPC and more</em></li>
+    <li><em>Name tag auto-generation</em>: leave <em>Auto-generate</em> checked, enter <code>&lt;student-id&gt;-lab5</code></li>
+    <li><em>IPv4 CIDR block</em>: <code>10.0.0.0/16</code></li>
+    <li><em>IPv6 CIDR block</em>: <em>No IPv6 CIDR block</em> · <em>Tenancy</em>: <em>Default</em></li>
+  </ol>
+  <p class="small">The wizard builds the VPC, subnets, IGW, route tables, and endpoint in one pass — and draws a live preview on the right.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🛠️ Task 1 — Build the VPC (2/2)</h2>
+  <ol start="6">
+    <li><em>Number of Availability Zones (AZs)</em>: <strong>2</strong></li>
+    <li><em>Number of public subnets</em>: <strong>2</strong> (ALB tier)</li>
+    <li><em>Number of private subnets</em>: <strong>4</strong> (2 app + 2 database)</li>
+    <li><em>NAT gateways ($)</em>: <strong>None</strong> (cost — see the answer slide)</li>
+    <li><em>VPC endpoints</em>: <strong>S3 Gateway</strong></li>
+    <li>Leave both <em>DNS options</em> checked → <em>Create VPC</em> → wait for all steps to succeed → <em>View VPC</em></li>
+  </ol>
+  <p class="small">Tier mapping: <code>private1</code>/<code>private2</code> = app tier · <code>private3</code>/<code>private4</code> = database tier.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✅ Check — What the Wizard Built</h2>
+  <p class="small">Open the VPC's <em>Resource map</em> tab. You should see:</p>
+  <ul class="glossary">
+    <li><strong>1 VPC</strong> <code>&lt;student-id&gt;-lab5-vpc</code> — <code>10.0.0.0/16</code></li>
+    <li><strong>6 subnets</strong> — <code>public1</code>, <code>private1</code>, <code>private3</code> in us-east-1a; <code>public2</code>, <code>private2</code>, <code>private4</code> in us-east-1b</li>
+    <li><strong>5 named route tables</strong> — <code>&lt;student-id&gt;-lab5-rtb-public</code> (shared by both public subnets) and one <code>rtb-private<em>N</em>-…</code> per private subnet</li>
+    <li><strong>1 internet gateway</strong> <code>&lt;student-id&gt;-lab5-igw</code> attached to the VPC — the target of the public route table's internet route</li>
+    <li><strong>1 VPC endpoint</strong> <code>&lt;student-id&gt;-lab5-vpce-s3</code> wired to the 4 private route tables</li>
+  </ul>
+  <p class="small">There is also an unnamed <em>main</em> route table with only the <code>local</code> route — no subnet uses it.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🔎 Task 1 — Verify the Routes</h2>
+  <ol>
+    <li><strong>VPC</strong> → <em>Route tables</em>; filter by your VPC</li>
+    <li>Select <code>&lt;student-id&gt;-lab5-rtb-public</code> → <em>Routes</em> tab</li>
+    <li>Select <code>&lt;student-id&gt;-lab5-rtb-private1-us-east-1a</code> → <em>Routes</em> tab</li>
+    <li>Repeat for <code>private3</code> (a database-tier route table)</li>
+  </ol>
+  <table>
+    <thead><tr><th>Route table</th><th>Destination → Target</th></tr></thead>
+    <tbody>
+      <tr><td>rtb-public</td><td><code>10.0.0.0/16 → local</code> · <code>0.0.0.0/0 → igw-…</code></td></tr>
+      <tr><td>rtb-private1…4</td><td><code>10.0.0.0/16 → local</code> · <code>pl-63a5400a → vpce-…</code> · <strong>no</strong> <code>0.0.0.0/0</code> route</td></tr>
+    </tbody>
+  </table>
+  <p class="small">✅ <strong>Check:</strong> <code>pl-63a5400a</code> is the AWS-managed prefix list <code>com.amazonaws.us-east-1.s3</code>. S3 traffic from private subnets goes through the endpoint; nothing else can leave.</p>
+</section>
+
+<section style="font-size:40px">
+  <h2>✅ Task 1 — Answers</h2>
+  <ul>
+    <li><strong>6 subnets</strong>: 2 public (ALB), 2 private app, 2 private DB — one of each tier per AZ</li>
+    <li><strong>Routes</strong>: public → IGW; app → NAT (production only — you chose <em>None</em> to avoid hourly cost); DB → <strong>no</strong> internet route at all</li>
+    <li><strong>S3</strong>: a <strong>gateway endpoint</strong> — a prefix-list route in the private route tables, free, no NAT needed</li>
+    <li><strong>Shell access</strong>: <strong>SSM Session Manager</strong>, reached through interface endpoints (<code>ssm</code>, <code>ssmmessages</code>, <code>ec2messages</code>) or NAT — no port 22, no keys</li>
+  </ul>
+  <p class="small">Secrets Manager would also use an <strong>interface</strong> endpoint (an ENI protected by <code>sg-vpce</code>, next task). Interface endpoints bill hourly, so this lab only discusses them.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🔗 Task 2 — Design the Security-Group Graph</h2>
+  <p>Fill in each SG's inbound rules (source → port) before you build them.</p>
+  <table>
+    <thead><tr><th>Security Group</th><th>Inbound Rules</th></tr></thead>
+    <tbody>
+      <tr><td><code>sg-alb</code></td><td></td></tr>
+      <tr><td><code>sg-app</code></td><td></td></tr>
+      <tr><td><code>sg-db</code></td><td></td></tr>
+      <tr><td><code>sg-vpce</code> (for interface endpoints)</td><td></td></tr>
+    </tbody>
+  </table>
+  <p class="small">Prefer SG-to-SG references over CIDRs. Outbound defaults to allow-all unless you restrict it — consider whether you should.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🛠️ Task 2 — Create <code>sg-alb</code> and <code>sg-app</code></h2>
+  <ol>
+    <li><strong>EC2</strong> → <em>Network &amp; Security</em> → <em>Security Groups</em> → <em>Create security group</em></li>
+    <li>Name <code>&lt;student-id&gt;-sg-alb</code>, description <code>ALB tier</code>, <em>VPC</em>: <code>&lt;student-id&gt;-lab5-vpc</code> (check this every time!)</li>
+    <li><em>Inbound rules</em> → <em>Add rule</em>: Type <em>HTTPS</em>, Source <em>Anywhere-IPv4</em> → <em>Create security group</em></li>
+    <li>Create <code>&lt;student-id&gt;-sg-app</code> in the same VPC, description <code>App tier</code></li>
+    <li><em>Add rule</em>: Type <em>Custom TCP</em>, Port range <code>8080</code>, Source <em>Custom</em> → pick <code>&lt;student-id&gt;-sg-alb</code> from the list → <em>Create security group</em></li>
+  </ol>
+  <p class="small">Create them in this order — a rule can only reference a security group that already exists.</p>
+</section>
+
+<section style="font-size:41.6px">
+  <h2>🛠️ Task 2 — Create <code>sg-db</code> and <code>sg-vpce</code></h2>
+  <ol start="6">
+    <li>Create <code>&lt;student-id&gt;-sg-db</code> (VPC: your lab VPC), description <code>DB tier</code></li>
+    <li><em>Add rule</em>: Type <em>PostgreSQL</em> (fills port 5432), Source <em>Custom</em> → <code>&lt;student-id&gt;-sg-app</code> → <em>Create security group</em></li>
+    <li>Create <code>&lt;student-id&gt;-sg-vpce</code>, description <code>Interface endpoints</code></li>
+    <li><em>Add rule</em>: Type <em>HTTPS</em>, Source <em>Custom</em> → <code>&lt;student-id&gt;-sg-app</code> → <em>Create security group</em></li>
+  </ol>
+  <p class="small">✅ <strong>Check:</strong> filter the list by your VPC ID — you see 5 groups (your 4 + <code>default</code>). Each of your 4 has exactly <strong>1 inbound rule</strong> and the default <strong>1 outbound rule</strong> (All traffic → <code>0.0.0.0/0</code>). The <em>Source</em> column for app/db/vpce shows an <code>sg-…</code> ID, not a CIDR.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✅ Task 2 — Sample Answer</h2>
+  <ul class="glossary">
+    <li><code>sg-alb</code> — inbound 443 from <code>0.0.0.0/0</code> (and 80 if you redirect to 443)</li>
+    <li><code>sg-app</code> — inbound 8080 from <code>sg-alb</code></li>
+    <li><code>sg-db</code> — inbound 5432 from <code>sg-app</code></li>
+    <li><code>sg-vpce</code> — inbound 443 from <code>sg-app</code></li>
+  </ul>
+  <p class="small">SG-to-SG references make the "app may reach DB" relationship <em>explicit</em> and survive IP changes: any ENI that carries <code>sg-app</code> is allowed, no matter which subnet or IP it lands on.</p>
+  <p class="small">Outbound: tightening it (e.g., <code>sg-app</code> egress only to <code>sg-db</code>:5432, <code>sg-vpce</code>:443, and the S3 prefix list) limits what a compromised instance can reach.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🕵️ Task 3 — Review This Config</h2>
+  <p class="small">A junior engineer proposed this. Compare it with what you just built and find at least five issues.</p>
+  <pre><code style="font-size:21.25px;max-height:none">VPC: 10.0.0.0/16
+Subnets:
+  subnet-public-a (10.0.0.0/24, AZ-a, IGW route)
+    - ALB
+    - App EC2
+    - RDS PostgreSQL
+
+Security groups:
+  sg-alb: inbound 443 from 0.0.0.0/0, inbound 22 from 0.0.0.0/0
+  sg-app: inbound 0-65535 from 0.0.0.0/0
+  sg-db:  inbound 5432 from 0.0.0.0/0
+
+Other:
+  - RDS "Publicly accessible" = Yes
+  - App instances have public IPs
+  - SSH key "app-key.pem" emailed to each developer
+  - CloudTrail disabled "to save money"</code></pre>
+</section>
+
+<section style="font-size:38.4px">
+  <h2>⚠️ Task 3 — Issues</h2>
+  <ul>
+    <li>All tiers collapsed into one public subnet — no network segmentation; DB is internet-reachable</li>
+    <li>Single AZ — not even reliability-safe, let alone security-safe</li>
+    <li>ALB SG allows SSH from the internet — SSH does not belong on an ALB at all</li>
+    <li>App SG opens all 65k ports to <code>0.0.0.0/0</code></li>
+    <li>DB SG opens PostgreSQL to the internet</li>
+    <li>RDS is publicly accessible</li>
+    <li>App instances have public IPs — should be private + SSM</li>
+    <li>SSH keys distributed via email — replace with SSM Session Manager</li>
+    <li>CloudTrail disabled — there will be no evidence when something goes wrong</li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🔐 Task 4 — Lock Down the S3 Endpoint</h2>
+  <p class="small">Your gateway endpoint was created with the <em>Full access</em> policy (<code>"Action": "*"</code> on <code>"Resource": "*"</code>), so a compromised app instance could copy data to <em>any</em> bucket in the world — including an attacker's.</p>
+  <ol>
+    <li>Write an endpoint policy that allows only <code>s3:GetObject</code> and <code>s3:PutObject</code> on the company buckets <code>&lt;student-id&gt;-orders-*</code> in <em>your</em> account</li>
+    <li>Which condition key would restrict access to buckets owned by any account in your organization, without listing every bucket?</li>
+    <li>Why does the endpoint policy <em>not</em> replace the app's IAM role policy?</li>
+  </ol>
+  <p class="small">Hint: an endpoint policy uses IAM policy syntax but also needs a <code>Principal</code>. Find your 12-digit account ID in the account menu (top right).</p>
+</section>
+
+<section style="font-size:41.6px">
+  <h2>🛠️ Task 4 — Apply the Endpoint Policy</h2>
+  <ol>
+    <li><strong>VPC</strong> → <em>PrivateLink and Lattice</em> → <em>Endpoints</em></li>
+    <li>Select <code>&lt;student-id&gt;-lab5-vpce-s3</code> (Type <em>Gateway</em>, Status <em>Available</em>)</li>
+    <li><em>Policy</em> tab — note the current full-access JSON</li>
+    <li><em>Actions</em> → <em>Manage policy</em> → choose <em>Custom</em></li>
+    <li>Replace the JSON with the policy on the next slide, replacing <code>STUDENT-ID</code> and <code>ACCOUNT-ID</code></li>
+    <li><em>Save</em></li>
+  </ol>
+  <p class="small">✅ <strong>Check:</strong> the <em>Policy</em> tab now shows your <code>CompanyBucketsOnly</code> statement, and the endpoint is still <em>Available</em>. Private route tables are unchanged — the policy filters traffic; the route still sends it.</p>
+</section>
+
+<section style="font-size:35.2px">
+  <h2>📝 Task 4 — Policy to Paste</h2>
+  <pre><code style="font-size:21.25px;max-height:none">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CompanyBucketsOnly",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Resource": "arn:aws:s3:::STUDENT-ID-orders-*/*",
+      "Condition": {
+        "StringEquals": { "aws:ResourceAccount": "ACCOUNT-ID" }
+      }
+    }
+  ]
+}</code></pre>
+  <p class="small">Try it: delete the <code>"Principal"</code> line and save — the save is rejected as an invalid VPC endpoint policy. Put it back and save again.</p>
+  <p class="small">Caution: a misspelled action (e.g. <code>s3:GetObjectt</code>) is <em>accepted</em> without error — it just never matches. Endpoint policies fail closed, so typos break your app silently.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✅ Task 4 — Sample Answer</h2>
+  <ul class="glossary">
+    <li><strong>Policy</strong>: as on the previous slide. <code>Resource</code> limits bucket names; <code>aws:ResourceAccount</code> blocks a look-alike bucket named <code>&lt;student-id&gt;-orders-x</code> that an attacker creates in <em>their</em> account</li>
+    <li><strong>Org-wide</strong>: <code>aws:ResourceOrgID</code> (bucket owned by any account in your AWS Organization) — no bucket list to maintain</li>
+    <li><strong>Not a replacement</strong>: the IAM policy, the endpoint policy, and the bucket policy must <em>all</em> allow the request. The endpoint policy is a data-exfiltration guardrail, not a substitute for least privilege</li>
+    <li><strong>Real-world gotcha</strong>: instances also pull from AWS-owned buckets (e.g., Amazon Linux package repos, SSM agent updates) — production policies add statements for those</li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🧱 Task 5 — When Would You Touch a NACL?</h2>
+  <p class="small">Security groups handle almost everything. For each situation, decide: <strong>Security group</strong>, <strong>NACL</strong>, or <strong>WAF</strong>, and give a one-line reason.</p>
+  <table>
+    <thead><tr><th>Situation</th><th>Control</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Block a known-bad IP range from reaching <em>anything</em> in the public subnets, immediately</td><td></td><td></td></tr>
+      <tr><td>Allow only the app tier to reach the database</td><td></td><td></td></tr>
+      <tr><td>Block SQL-injection attempts against the login page</td><td></td><td></td></tr>
+      <tr><td>Make sure the isolated DB subnets can never talk to the public subnets, even if someone misconfigures an SG</td><td></td><td></td></tr>
+      <tr><td>Rate-limit a single client hammering the search API</td><td></td><td></td></tr>
+    </tbody>
+  </table>
+  <p class="small">Then build the first one: block <code>203.0.113.0/24</code> on the public subnets.</p>
+</section>
+
+<section style="font-size:35.2px">
+  <h2>🛠️ Task 5 — Create a Public-Subnet NACL</h2>
+  <ol>
+    <li><strong>VPC</strong> → <em>Security</em> → <em>Network ACLs</em> → <em>Create network ACL</em></li>
+    <li>Name <code>&lt;student-id&gt;-lab5-public-nacl</code>, <em>VPC</em>: your lab VPC → <em>Create network ACL</em></li>
+    <li>Select it → <em>Inbound rules</em> tab: only <code>*</code> <em>All traffic</em> <em>Deny</em> — a new NACL denies everything</li>
+    <li><em>Edit inbound rules</em> → <em>Add new rule</em>: Rule number <code>90</code>, Type <em>All traffic</em>, Source <code>203.0.113.0/24</code>, <em>Deny</em></li>
+    <li><em>Add new rule</em>: Rule number <code>100</code>, Type <em>All traffic</em>, Source <code>0.0.0.0/0</code>, <em>Allow</em> → <em>Save changes</em></li>
+    <li><em>Outbound rules</em> tab → <em>Edit outbound rules</em> → rule <code>100</code>, <em>All traffic</em>, <code>0.0.0.0/0</code>, <em>Allow</em> → <em>Save changes</em></li>
+  </ol>
+  <p class="small">You use a custom NACL rather than editing the default one, because the default NACL also covers your private subnets.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🔗 Task 5 — Associate and Verify</h2>
+  <ol start="7">
+    <li><em>Subnet associations</em> tab → <em>Edit subnet associations</em></li>
+    <li>Select <code>…subnet-public1-us-east-1a</code> and <code>…subnet-public2-us-east-1b</code> → <em>Save changes</em></li>
+  </ol>
+  <table>
+    <thead><tr><th>Direction</th><th>Rule #</th><th>Source / Dest</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td>Inbound</td><td>90</td><td>203.0.113.0/24</td><td>Deny</td></tr>
+      <tr><td>Inbound</td><td>100</td><td>0.0.0.0/0</td><td>Allow</td></tr>
+      <tr><td>Inbound / Outbound</td><td>*</td><td>0.0.0.0/0</td><td>Deny</td></tr>
+      <tr><td>Outbound</td><td>100</td><td>0.0.0.0/0</td><td>Allow</td></tr>
+    </tbody>
+  </table>
+  <p class="small">✅ <strong>Check:</strong> your NACL lists 2 associated subnets; the default NACL now lists the 4 private subnets. Rules are evaluated lowest number first — if the deny were rule <code>110</code>, the allow at <code>100</code> would match first and the deny would never fire. Re-using a rule number is rejected.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✅ Task 5 — Sample Answer</h2>
+  <ul>
+    <li><strong>Bad IP range — NACL</strong> (or WAF IP set for HTTP traffic): SGs have no deny rules; NACLs do</li>
+    <li><strong>App → DB — Security group</strong>: SG-to-SG reference from <code>sg-app</code></li>
+    <li><strong>SQL injection — WAF</strong>: it's L7; SGs and NACLs only see ports and IPs</li>
+    <li><strong>Subnet isolation backstop — NACL</strong>: a subnet-level deny that holds even when an SG is wrong (defense in depth)</li>
+    <li><strong>Rate limiting — WAF</strong> rate-based rule</li>
+  </ul>
+  <p class="small">NACLs are stateless — your outbound allow-all rule is what lets return traffic (ephemeral ports 1024–65535) leave. A tight outbound NACL that forgets those ports breaks connections.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🔍 Explore (optional, read-only)</h2>
+  <ol>
+    <li><strong>VPC</strong> → <em>Your VPCs</em> → your VPC → <em>Resource map</em>: hover a subnet to highlight its route table and the IGW or endpoint it reaches</li>
+    <li><strong>VPC</strong> → <em>Managed prefix lists</em>: open <code>com.amazonaws.us-east-1.s3</code> and see the CIDRs behind <code>pl-63a5400a</code></li>
+    <li><strong>VPC</strong> → <em>Security groups</em> → <code>&lt;student-id&gt;-sg-db</code> → <em>Inbound rules</em>: the source is a group, not an IP</li>
+    <li><strong>WAF &amp; Shield</strong> → <em>Web ACLs</em>: browse the create wizard's rule groups (cancel before creating anything)</li>
+  </ol>
+</section>
+
+<section style="font-size:38.4px">
+  <h2>🧹 Cleanup</h2>
+  <ol>
+    <li><strong>VPC</strong> → <em>Endpoints</em> → select <code>&lt;student-id&gt;-lab5-vpce-s3</code> → <em>Actions</em> → <em>Delete VPC endpoints</em> → confirm</li>
+    <li><strong>EC2</strong> → <em>Security Groups</em> → delete <code>&lt;student-id&gt;-sg-db</code> and <code>&lt;student-id&gt;-sg-vpce</code></li>
+    <li>Then delete <code>&lt;student-id&gt;-sg-app</code>, then <code>&lt;student-id&gt;-sg-alb</code></li>
+    <li><strong>VPC</strong> → <em>Your VPCs</em> → select <code>&lt;student-id&gt;-lab5-vpc</code> → <em>Actions</em> → <em>Delete VPC</em> → type <code>delete</code> → <em>Delete</em></li>
+  </ol>
+  <p class="small">Order matters: a security group that another group's rule references can't be deleted ("has a dependent object"). <em>Delete VPC</em> removes the subnets, route tables, custom NACL, and internet gateway with it.</p>
+  <p class="small">✅ <strong>Check:</strong> <em>Your VPCs</em>, <em>Endpoints</em>, and <em>Security Groups</em> show nothing named <code>&lt;student-id&gt;-lab5…</code> / <code>&lt;student-id&gt;-sg-…</code>.</p>
+</section>
+
+<section data-background-color="#146EB4" style="font-size:43.2px">
+  <h2>💬 Discussion</h2>
+  <ul>
+    <li>Which of these mistakes would be caught by an AWS Config rule today?<br>
+      <span class="small" style="color:#cce"><code>restricted-ssh</code> · <code>vpc-sg-open-only-to-authorized-ports</code> · <code>rds-instance-public-access-check</code></span></li>
+    <li>What's the right way to prevent someone from creating an open security group in the first place?<br>
+      <span class="small" style="color:#cce">SCPs + permission boundaries + IaC reviews + policy-as-code in CI</span></li>
+    <li>Where do VPC endpoints earn their keep beyond security?<br>
+      <span class="small" style="color:#cce">Cost (no NAT egress fees) · performance (shorter path) · reliability (no internet dependency)</span></li>
+  </ul>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>

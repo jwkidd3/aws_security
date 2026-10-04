@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 7 — Mini Well-Architected Security Review</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<style>
+  :root { --aws-orange:#FF9900; --aws-navy:#232F3E; --aws-blue:#146EB4; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--aws-navy); font-weight: 600; }
+  .reveal { font-size: 32px; }
+  .reveal h1 { font-size: 1.8em; }
+  .reveal h2 { font-size: 1.2em; }
+  .reveal h3 { font-size: 1.05em; color: var(--aws-blue); }
+  .reveal section { text-align: left; }
+  .reveal section.title-slide { text-align: center; }
+  .reveal .accent { color: var(--aws-orange); }
+  .reveal ul, .reveal ol { line-height: 1.35; }
+  .reveal code { background:#f4f4f4; padding:2px 6px; border-radius:4px; color:#c7254e; }
+  .reveal .small { font-size: 0.72em; color:#555; }
+  .reveal table { font-size: 0.68em; border-collapse: collapse; width: 100%; }
+  .reveal th, .reveal td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; vertical-align: top; }
+  .reveal th { background: #f4f4f4; color: var(--aws-navy); }
+  .reveal .glossary li { font-size: 0.72em; margin-bottom: 4px; }
+  .reveal section[data-background-color] h1,
+  .reveal section[data-background-color] h2,
+  .reveal section[data-background-color] h3,
+  .reveal section[data-background-color] p,
+  .reveal section[data-background-color] li { color: #fff; }
+  .reveal .lab-tag { display:inline-block; background:#fff; color:var(--aws-navy);
+    padding:6px 14px; border-radius:20px; font-size:0.55em; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<section class="title-slide" data-background-color="#FF9900">
+  <span class="lab-tag">Hands-On Lab · 30 min</span>
+  <h1>Lab 7</h1>
+  <h3 style="color:#fff">Mini Well-Architected Security Review</h3>
+  <p class="small" style="color:#fff">Module 6 — Course Wrap-Up</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🎯 Objective</h2>
+  <p>Run a real Security Pillar review of a fictional workload in the <strong>AWS Well-Architected Tool</strong>:</p>
+  <ul>
+    <li>Define the workload and answer five key Security questions honestly</li>
+    <li>Read the High / Medium risk summary and the Improvement plan</li>
+    <li>Save a <code>baseline</code> milestone</li>
+    <li>Score the seven design principles and build a Top-3 roadmap</li>
+    <li>Re-answer as if the top three shipped, and compare milestones</li>
+  </ul>
+  <p class="small">👥 <strong>Shared class account:</strong> everyone works in the same AWS account. Start every resource name with your student ID, and only open, change, or delete resources that start with <em>your</em> ID.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📚 Terms You'll See</h2>
+  <ul class="glossary">
+    <li><strong>Well-Architected Review</strong> — structured walkthrough of a workload against AWS best practices</li>
+    <li><strong>Workload</strong> — the collection of resources delivering business value</li>
+    <li><strong>Lens</strong> — a set of questions; the <em>AWS Well-Architected Framework</em> lens has 57 questions across six pillars (11 in Security)</li>
+    <li><strong>Best practice (choice)</strong> — a checkbox under a question; tick only what is true today</li>
+    <li><strong>Risk</strong> — High / Medium / None, calculated from which best practices are <em>not</em> ticked</li>
+    <li><strong>Improvement plan</strong> — the tool's list of risky questions, linked to the best-practice guidance</li>
+    <li><strong>Milestone</strong> — a saved, read-only snapshot of the review; compare milestones to show progress</li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>⚙️ Before You Start</h2>
+  <ol>
+    <li>Sign in to the class AWS account with your student credentials</li>
+    <li>In the region selector (top right) choose <strong>US East (N. Virginia) us-east-1</strong> — use it for the whole lab</li>
+    <li>Use the student ID your instructor assigned you (lowercase, e.g. <code>stu07</code>) — your workload is named <code>&lt;student-id&gt;-OrderFlow</code></li>
+    <li>Keep a notepad open for your scores, roadmap, and ticket</li>
+  </ol>
+  <p class="small">The Well-Architected Tool is free. You create one workload (plus two milestones inside it) and delete it at the end. Nothing else is created — the OrderFlow resources are fictional.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🛒 Scenario — "OrderFlow"</h2>
+  <p class="small">A 2-year-old e-commerce order-processing workload in one AWS account:</p>
+  <ul class="glossary">
+    <li>Runs in one region, one VPC, one account shared with two other apps</li>
+    <li>Public ALB → EC2 auto-scaling group → RDS MySQL (Multi-AZ)</li>
+    <li>Images &amp; receipts in S3 (<code>orderflow-assets</code>, public-read for CloudFront)</li>
+    <li>Developers use IAM users with access keys; keys last rotated "a while ago"; no MFA evidence</li>
+    <li>CloudTrail enabled in <code>us-east-1</code> only; logs go to the same account</li>
+    <li>GuardDuty is "on the roadmap"; no Config rules</li>
+    <li>Secrets are in a <code>.env</code> file baked into the AMI</li>
+    <li>TLS on the ALB with an ACM certificate; RDS doesn't enforce SSL; S3 bucket has default SSE-S3</li>
+    <li>No documented IR process; no game days ever run</li>
+  </ul>
+</section>
+
+<section style="font-size:36.8px">
+  <h2>🏗️ Part 1 — Define the Workload</h2>
+  <ol>
+    <li>Open <strong>AWS Well-Architected Tool</strong> → <em>Workloads</em> → <em>Define workload</em> (in its menu, choose <em>Define workload</em> — not <em>Define from review template</em>)</li>
+    <li><em>Name</em>: <code>&lt;student-id&gt;-OrderFlow</code></li>
+    <li><em>Description</em>: <code>E-commerce order-processing workload (lab scenario)</code></li>
+    <li><em>Review owner</em>: your name (at least 3 characters)</li>
+    <li><em>Environment</em>: <em>Production</em></li>
+    <li><em>Regions</em>: tick <em>AWS Regions</em> and choose <strong>US East (N. Virginia)</strong></li>
+    <li>Leave every optional field (account IDs, architectural design, industry, application) empty</li>
+  </ol>
+  <p class="small">Required fields: name, description, review owner, environment, at least one region, and a lens. Leave one out and the tool refuses to create the workload.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🏗️ Part 1 — Apply the Lens</h2>
+  <ol>
+    <li>Choose <em>Next</em>. Skip the optional <em>Apply profile</em> step (choose <em>Next</em>)</li>
+    <li>On the lenses step, keep <strong>AWS Well-Architected Framework</strong> selected (it is selected automatically)</li>
+    <li>Choose <em>Define workload</em></li>
+  </ol>
+  <p>✅ <strong>Check:</strong> the workload page for <code>&lt;student-id&gt;-OrderFlow</code> opens. The lens shows <strong>0/57</strong> questions answered and the Security pillar <strong>0/11</strong>.</p>
+</section>
+
+<section style="font-size:33.6px">
+  <h2>🗂️ Part 2 — The 11 Security Questions</h2>
+  <table>
+    <thead><tr><th>ID</th><th>Question</th><th>Design principle it tests</th></tr></thead>
+    <tbody>
+      <tr><td>SEC 1</td><td>How do you securely operate your workload?</td><td>Automate security best practices</td></tr>
+      <tr><td><strong>SEC 2</strong></td><td><strong>How do you manage identities for people and machines?</strong></td><td>Strong identity foundation</td></tr>
+      <tr><td>SEC 3</td><td>How do you manage permissions for people and machines?</td><td>Strong identity foundation</td></tr>
+      <tr><td><strong>SEC 4</strong></td><td><strong>How do you detect and investigate security events?</strong></td><td>Enable traceability</td></tr>
+      <tr><td>SEC 5</td><td>How do you protect your network resources?</td><td>Security at all layers</td></tr>
+      <tr><td>SEC 6</td><td>How do you protect your compute resources?</td><td>Security at all layers · Keep people away from data</td></tr>
+      <tr><td>SEC 7</td><td>How do you classify your data?</td><td>Protect data in transit &amp; at rest</td></tr>
+      <tr><td><strong>SEC 8</strong></td><td><strong>How do you protect your data at rest?</strong></td><td>Protect data · Keep people away from data</td></tr>
+      <tr><td><strong>SEC 9</strong></td><td><strong>How do you protect your data in transit?</strong></td><td>Protect data in transit &amp; at rest</td></tr>
+      <tr><td><strong>SEC 10</strong></td><td><strong>How do you anticipate, respond to, and recover from incidents?</strong></td><td>Prepare for security events</td></tr>
+      <tr><td>SEC 11</td><td>How do you incorporate and validate the security properties of applications…?</td><td>Automate security best practices</td></tr>
+    </tbody>
+  </table>
+  <p class="small">You will answer the five <strong>bold</strong> questions. Leave the rest unanswered so everyone's results match.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📝 Part 2 — Answer SEC 2 and SEC 4</h2>
+  <ol>
+    <li>On the workload page choose <em>Start reviewing</em> → <em>AWS Well-Architected Framework</em></li>
+    <li>In the left panel expand <strong>Security</strong> → open <strong>SEC 2</strong> (identities)</li>
+    <li>OrderFlow meets none of these practices — tick only <em>None of these</em></li>
+    <li>Open <strong>SEC 4</strong> (detect and investigate) — tick only <em>Configure service and application logging</em> (CloudTrail exists, single-region)</li>
+    <li>Choose <em>Save and exit</em> if you need a break — answers are saved per question</li>
+  </ol>
+  <p class="small">Use <em>Info</em> next to each choice to read what the best practice really requires — that's the honest-answer test.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📝 Part 2 — Answer SEC 8, SEC 9, SEC 10</h2>
+  <ol>
+    <li><strong>SEC 8</strong> (data at rest) — tick only <em>Enforce encryption at rest</em> (default SSE-S3; no customer managed keys, public-read bucket)</li>
+    <li><strong>SEC 9</strong> (data in transit) — tick only <em>Implement secure key and certificate management</em> (ACM cert on the ALB; RDS doesn't enforce SSL, so <em>not</em> "Enforce encryption in transit")</li>
+    <li><strong>SEC 10</strong> (incidents) — tick only <em>None of these</em></li>
+    <li>Choose <em>Save and exit</em></li>
+  </ol>
+  <p>✅ <strong>Check:</strong> back on the workload page the lens shows <strong>5/57</strong> answered (Security <strong>5/11</strong>) with <strong>4 High risks</strong> and <strong>1 Medium risk</strong>.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📋 Part 3 — Improvement Plan &amp; Milestone</h2>
+  <ol>
+    <li>Open the <em>Improvement plan</em> tab — High: <strong>SEC 2, SEC 8, SEC 9, SEC 10</strong>; Medium: <strong>SEC 4</strong></li>
+    <li>Open one High item and skim the linked best-practice guidance — note the services it recommends</li>
+    <li>On the workload page choose <em>Save milestone</em> → name <code>baseline</code> → <em>Save</em></li>
+  </ol>
+  <p>✅ <strong>Check:</strong> the <em>Milestones</em> tab lists <code>baseline</code>.</p>
+  <p class="small">Milestone names must be unique per workload (case and spaces are ignored) — a second <code>baseline</code> is rejected.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>📊 Task 1 — Score Against the Seven Principles</h2>
+  <p class="small">Use the scenario, your five answers, and the SEC map. Unanswered questions still count — judge them from the scenario. A few words of evidence per row is enough.</p>
+  <table>
+    <thead><tr><th>Design Principle</th><th>SEC Qs</th><th>Meets / Partial / Gap</th><th>Evidence / Why</th></tr></thead>
+    <tbody>
+      <tr><td>Strong identity foundation</td><td>2, 3</td><td></td><td></td></tr>
+      <tr><td>Enable traceability</td><td>4</td><td></td><td></td></tr>
+      <tr><td>Apply security at all layers</td><td>5, 6</td><td></td><td></td></tr>
+      <tr><td>Automate security best practices</td><td>1, 11</td><td></td><td></td></tr>
+      <tr><td>Protect data in transit &amp; at rest</td><td>7, 8, 9</td><td></td><td></td></tr>
+      <tr><td>Keep people away from data</td><td>6, 8</td><td></td><td></td></tr>
+      <tr><td>Prepare for security events</td><td>10</td><td></td><td></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🗺️ Task 2 — Top-3 Remediation Roadmap</h2>
+  <p>From your gaps and the tool's High risks, pick the <strong>three</strong> items with the biggest risk-reduction payoff:</p>
+  <table>
+    <thead><tr><th>#</th><th>Action</th><th>SEC Q</th><th>Owner</th><th>Target</th><th>Risk reduced</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>2</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>3</td><td></td><td></td><td></td><td></td><td></td></tr>
+    </tbody>
+  </table>
+  <p class="small">Be honest about <em>Target</em> — nothing kills a roadmap faster than unrealistic dates.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>✅ Sample Answer — Scoring</h2>
+  <ul class="glossary">
+    <li><strong>Identity</strong> — Gap: IAM users + long-lived keys; no Identity Center; no MFA evidence (SEC 2 High)</li>
+    <li><strong>Traceability</strong> — Gap: CloudTrail single-region, no central log account, GuardDuty off (SEC 4 Medium — logging exists, little else)</li>
+    <li><strong>Layers</strong> — Partial: VPC + SGs exist, but S3 bucket public-read, no WAF</li>
+    <li><strong>Automate</strong> — Gap: no Config rules, no SCPs, no policy-as-code</li>
+    <li><strong>Protect data</strong> — Partial: ALB TLS yes; RDS no SSL enforcement; SSE-S3 but no customer managed key for sensitive data (SEC 8, SEC 9 High)</li>
+    <li><strong>Keep people away</strong> — Gap: secrets in <code>.env</code> baked into AMI; devs have direct creds</li>
+    <li><strong>Prepare for events</strong> — Gap: no IR plan, no game days, no break-glass roles (SEC 10 High)</li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🏆 Sample Answer — Roadmap</h2>
+  <ol class="glossary">
+    <li><strong>Multi-region CloudTrail to a log-archive account + GuardDuty</strong>, High findings routed by EventBridge to the ticket queue (SEC 4) — <em>visibility is the prerequisite for everything else</em></li>
+    <li><strong>Move developers to IAM Identity Center with MFA</strong>; delete IAM user access keys (SEC 2)</li>
+    <li><strong>Move secrets out of the AMI into Secrets Manager</strong> with automatic rotation (SEC 2)</li>
+    <li><strong>Enforce TLS to RDS</strong> (<code>require_secure_transport</code> in the DB parameter group) (SEC 9)</li>
+    <li><strong>Fix the public <code>orderflow-assets</code> bucket</strong> — CloudFront with OAC + Block Public Access on; KMS key for receipts (SEC 8)</li>
+  </ol>
+  <p class="small">#1–#3 are the sample Top-3; #4–#5 are next in line. WAF, Config rules, and an IR plan (SEC 10) still matter — these give the most risk reduction for the least effort, and most unlock the rest.</p>
+</section>
+
+<section style="font-size:36.8px">
+  <h2>🔁 Task 3 — Re-Score in the Tool</h2>
+  <p class="small">Assume the sample top three (CloudTrail + GuardDuty, Identity Center, Secrets Manager) have shipped. <em>Continue reviewing</em> → Security:</p>
+  <ol>
+    <li><strong>SEC 4</strong> — keep <em>Configure service and application logging</em>; add <em>Capture logs, findings, and metrics in standardized locations</em> and <em>Correlate and enrich security events</em></li>
+    <li><strong>SEC 2</strong> — untick <em>None of these</em>; tick <em>Use strong sign-in mechanisms</em>, <em>Use temporary credentials</em>, <em>Store and use secrets securely</em>, <em>Rely on a centralized identity provider</em>, <em>Audit and rotate credentials periodically</em></li>
+    <li><em>Save and exit</em> → <em>Save milestone</em> → name <code>after-top-3</code> → <em>Save</em></li>
+    <li>Open the <em>Milestones</em> tab and compare the two milestones' risk counts</li>
+  </ol>
+  <p>✅ <strong>Check:</strong> <code>baseline</code> = <strong>4 High / 1 Medium</strong>; <code>after-top-3</code> = <strong>3 High / 2 Medium</strong> (SEC 2 now Medium, SEC 4 still Medium).</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🗝️ Answer Key — What the Re-Score Tells You</h2>
+  <ul class="glossary">
+    <li><strong>SEC 2 only reached Medium</strong> — <em>Employ user groups and attributes</em> is still unticked; ticking it too gives <strong>None</strong></li>
+    <li><strong>SEC 4 didn't move</strong> — three roadmap items shipped, still Medium: <em>Initiate remediation for non-compliant resources</em> (Config rules + automated remediation) is missing; with it SEC 4 is <strong>None</strong></li>
+    <li>In the design principles: <em>Traceability</em> Gap → Partial; <em>Identity</em> Gap → Partial; <em>Keep people away from data</em> Gap → Partial</li>
+    <li><strong>Didn't move at all:</strong> SEC 8, SEC 9, SEC 10 — <em>Protect data</em> and <em>Prepare for events</em> are your next round</li>
+    <li><strong>Cheapest next win:</strong> enforcing TLS to RDS lets you tick <em>Enforce encryption in transit</em> — SEC 9 goes High → <strong>None</strong></li>
+    <li>Lesson: the tool rewards <em>complete</em> practices, not effort — a ticket that covers half a question rarely changes its risk</li>
+  </ul>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>⭐ Extra — If You Finish Early</h2>
+  <ol class="glossary">
+    <li><strong>Report:</strong> open the lens (<em>AWS Well-Architected Framework</em>) → <em>Generate report</em> — a PDF downloads. Its "Improvement item summary" matches the workload page: <strong>High risk: 3, Medium risk: 2</strong> after the re-score</li>
+    <li><strong>Ticket:</strong> write your #1 roadmap item as an engineering ticket — <em>Title</em> (starts with a verb), <em>Risk</em> (in business terms), <em>Acceptance criteria</em> (e.g., Config rule <code>multi-region-cloudtrail-enabled</code> is compliant), <em>AWS services</em>, <em>Evidence</em> for an auditor</li>
+    <li><strong>Sample ticket:</strong> "Enable organization-wide CloudTrail delivered to a log-archive account, with GuardDuty alerting" — multi-region trail with log-file validation, S3 Object Lock, Config rule compliant, GuardDuty High findings routed by EventBridge to a ticket</li>
+    <li><strong>Evidence:</strong> open <strong>Trusted Advisor</strong> → <em>Security</em> (read-only — change nothing) and note which SEC question each check backs up (e.g., root MFA → SEC 1 / SEC 2; unrestricted ports → SEC 5)</li>
+  </ol>
+  <p class="small">On a real review, attach that evidence in each question's <em>Notes</em> box so the next reviewer can verify your answer.</p>
+</section>
+
+<section style="font-size:43.2px">
+  <h2>🧹 Cleanup</h2>
+  <ol>
+    <li><strong>AWS Well-Architected Tool</strong> → <em>Workloads</em> → select <code>&lt;student-id&gt;-OrderFlow</code></li>
+    <li>Choose <em>Delete workload</em>, then <em>Delete</em> in the confirmation window — this also deletes the <code>baseline</code> and <code>after-top-3</code> milestones</li>
+    <li>Delete the downloaded PDF report from your computer (if you did the Extra)</li>
+  </ol>
+  <p>✅ <strong>Check:</strong> the <em>Workloads</em> list no longer shows <code>&lt;student-id&gt;-OrderFlow</code>.</p>
+</section>
+
+<section data-background-color="#146EB4" style="font-size:43.2px">
+  <h2>🎉 Wrap-Up Discussion</h2>
+  <ul>
+    <li>What's the one thing from today you'll try in your own environment next week?</li>
+    <li>Who owns the Well-Architected review cadence in your org — and if nobody does, how does that change?</li>
+    <li>Which question would your real workload struggle to answer honestly?</li>
+    <li>Which of the anti-patterns you saw today feels most like home?</li>
+  </ul>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, slideNumber: 'c/t', transition: 'fade', width: 1280, height: 800, margin: 0.04, minScale: 0.2, maxScale: 2.0 });</script>
+</body>
+</html>
