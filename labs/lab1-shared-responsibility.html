@@ -114,7 +114,7 @@
   </ul>
 </section>
 
-<section style="font-size:41.6px">
+<section style="font-size:35.2px">
   <h2>🚫 Part 1 — Try to Make It Public</h2>
   <ol>
     <li><em>Permissions</em> tab → <em>Bucket policy</em> → <em>Edit</em></li>
@@ -132,7 +132,7 @@
   }]
 }
 </code></pre>
-  <p>✅ <strong>Check:</strong> the save <strong>fails</strong> with an access-denied error saying the public policy conflicts with Block Public Access. Choose <em>Cancel</em>.</p>
+  <p>✅ <strong>Check:</strong> the save <strong>fails</strong> — <em>"Your bucket policy changes can't be saved"</em>: the policy grants public access that conflicts with your Block Public Access settings. (The policy validator showed 0 findings — it checks grammar, not exposure.) Choose <em>Cancel</em>.</p>
 </section>
 
 <section style="font-size:43.2px">
@@ -152,9 +152,9 @@
     <li>Open <strong>Lambda</strong> → <em>Functions</em> → <em>Create function</em></li>
     <li>Choose <em>Author from scratch</em></li>
     <li>Function name: <code>&lt;student-id&gt;-lab1-fn</code></li>
-    <li>Runtime: change the default (Node.js) to the newest <strong>Python 3.x</strong> in the list</li>
+    <li>Runtime: change the default (Node.js) to the newest <strong>Python</strong> that is <em>not</em> marked Preview (Python 3.14 today)</li>
     <li>Leave <em>Additional settings</em> as is — <em>ARM64 architecture</em> and <em>Custom execution role</em> stay off, so you get x86_64 and a new role with basic Lambda permissions</li>
-    <li>Choose <em>Create function</em></li>
+    <li>Choose <em>Create function</em>; when the <em>Getting started</em> window opens, choose <em>Dismiss</em></li>
   </ol>
   <p>✅ <strong>Check:</strong> a green banner confirms the function was created, and the <em>Code</em> tab shows a <code>lambda_function.py</code> that returns <code>'Hello from Lambda!'</code>.</p>
 </section>
@@ -333,12 +333,13 @@
   </ul>
 </section>
 
-<section style="font-size:33.6px">
+<section>
   <h2>🧹 Cleanup</h2>
   <ol>
     <li><strong>Lambda</strong> → <em>Functions</em> → select <code>&lt;student-id&gt;-lab1-fn</code> → <em>Actions</em> → <em>Delete function</em> → type <code>confirm</code> → <em>Delete</em></li>
     <li><strong>IAM</strong> → <em>Roles</em> → open <code>&lt;student-id&gt;-lab1-fn-role-…</code> → <em>Permissions</em> tab: note the attached policy name (<code>AWSLambdaBasicExecutionRole-…</code>)</li>
-    <li>Back in <em>Roles</em>, select the role → <em>Delete</em> → type the role name → <em>Delete</em>; if the noted policy is customer managed, delete it too (<em>Policies</em> → select <strong>that exact name</strong> → <em>Delete</em>)</li>
+    <li>Back in <em>Roles</em>, select the role → <em>Delete</em> → type the role name → <em>Delete</em></li>
+    <li><em>Policies</em> → search <code>AWSLambdaBasicExecutionRole-</code> → open <strong>the exact name you noted</strong> (customer managed — classmates have their own) → <em>Delete</em> → type the policy name → <em>Delete</em></li>
     <li><strong>CloudWatch</strong> → <em>Log groups</em> → select <code>/aws/lambda/&lt;student-id&gt;-lab1-fn</code> → <em>Actions</em> → <em>Delete log group(s)</em> → <em>Delete</em></li>
     <li><strong>S3</strong> → <em>Buckets</em> → select your bucket → <em>Empty</em> → type <code>permanently delete</code> → <em>Empty</em></li>
     <li>Select the bucket again → <em>Delete</em> → type the bucket name → <em>Delete bucket</em></li>

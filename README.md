@@ -102,7 +102,7 @@ Every lab is performed hands-on in the **AWS web console**. All students share *
    - *VPCs per Region* (default 5)
    - *Internet gateways per Region* (default 5)
    - *Gateway VPC endpoints per Region* (default 20)
-3. **GuardDuty (Lab 6)** — GuardDuty is a single account-wide setting. Before Lab 6, in us-east-1 open GuardDuty, choose *Enable all GuardDuty features* → *Get started* → *Enable GuardDuty*, then *Settings* → *Sample findings* → *Generate sample findings* once (about 445 findings, one per type). After class, choose *Settings* → in the *Suspend GuardDuty* section choose *Disable GuardDuty* → confirm. All features, including the protection plans, are covered by the 30-day free trial; billing starts after that.
+3. **GuardDuty (Lab 6)** — GuardDuty is a single account-wide setting. Before Lab 6, in us-east-1 open GuardDuty, choose *Enable all GuardDuty features* → *Get started* → *Enable GuardDuty*, then *Settings* → *Sample findings* → *Generate sample findings* → confirm *Generate sample findings* in the dialog, once (about 445 findings, one per type). After class, choose *Settings* → in the *Suspend GuardDuty* section choose *Disable GuardDuty* → confirm. All features, including the protection plans, are covered by the 30-day free trial; billing starts after that.
 4. **Organizations** — the class account is the organization's management account. SCPs never apply to a management account, so Lab 2 has students write and validate SCPs only; they never create or attach them.
 5. **No default VPC** — Labs 1 and 6 assume us-east-1 has no default VPC (the class account's was removed). If one exists, delete it before class or add 1 to the VPC and internet-gateway quotas above.
 

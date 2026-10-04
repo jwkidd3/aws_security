@@ -228,7 +228,7 @@
     <li>Attach no permissions → <em>Next</em> → <em>Create user</em></li>
     <li>Open the user → <em>Security credentials</em> tab → <em>Access keys</em> → <em>Create access key</em></li>
     <li>Use case: <em>Other</em> → <em>Next</em> → <em>Create access key</em></li>
-    <li>Do <strong>not</strong> download or copy the secret → <em>Done</em></li>
+    <li>Do <strong>not</strong> download or copy the secret → <em>Done</em> → in <em>Continue without viewing or downloading?</em> choose <em>Continue</em></li>
   </ol>
   <div class="check">✅ <strong>Check:</strong> the <em>Access keys</em> section lists one key (<code>AKIA…</code>) with status <strong>Active</strong>. Write down its <strong>Access key ID</strong> — you'll search CloudTrail for it.</div>
 </section>
@@ -346,7 +346,7 @@ Repo commit:       pushed 47 minutes ago</code></pre>
 <section style="font-size:43.2px">
   <h2>🧹 Cleanup (1/2) — IAM &amp; VPC</h2>
   <ol class="steps">
-    <li><strong>IAM</strong> → <em>IAM users</em> → tick <code>&lt;student-id&gt;-jdoe</code> → <em>Delete</em> → type the user name → <em>Delete</em> (the console removes its access key and detaches both policies for you)</li>
+    <li><strong>IAM</strong> → <em>IAM users</em> → tick <code>&lt;student-id&gt;-jdoe</code> → <em>Delete</em> → type <code>confirm</code> → <em>Delete user</em> (the console removes its access key and detaches both policies for you)</li>
     <li><strong>IAM</strong> → <em>Roles</em> → tick <code>&lt;student-id&gt;-prod-api-role</code> → <em>Delete</em> → type the role name → <em>Delete</em> (removes the <code>AWSRevokeOlderSessions</code> inline policy too)</li>
     <li><strong>VPC</strong> → <em>Security groups</em> → tick <code>&lt;student-id&gt;-quarantine</code> → <em>Actions</em> → <em>Delete security groups</em> → confirm</li>
     <li><strong>VPC</strong> → <em>Your VPCs</em> → tick <code>&lt;student-id&gt;-lab6</code> → <em>Actions</em> → <em>Delete VPC</em> → type <code>delete</code> → <em>Delete</em></li>

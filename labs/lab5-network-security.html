@@ -176,14 +176,14 @@
   <p class="small">Prefer SG-to-SG references over CIDRs. Outbound defaults to allow-all unless you restrict it — consider whether you should.</p>
 </section>
 
-<section style="font-size:43.2px">
+<section style="font-size:38.4px">
   <h2>🛠️ Task 2 — Create <code>sg-alb</code> and <code>sg-app</code></h2>
   <ol>
     <li><strong>EC2</strong> → <em>Network &amp; Security</em> → <em>Security Groups</em> → <em>Create security group</em></li>
     <li>Name <code>&lt;student-id&gt;-sg-alb</code>, description <code>ALB tier</code>, <em>VPC</em>: <code>&lt;student-id&gt;-lab5-vpc</code> (check this every time!)</li>
     <li><em>Inbound rules</em> → <em>Add rule</em>: Type <em>HTTPS</em>, Source <em>Anywhere-IPv4</em> → <em>Create security group</em></li>
     <li>Create <code>&lt;student-id&gt;-sg-app</code> in the same VPC, description <code>App tier</code></li>
-    <li><em>Add rule</em>: Type <em>Custom TCP</em>, Port range <code>8080</code>, Source <em>Custom</em> → pick <code>&lt;student-id&gt;-sg-alb</code> from the list → <em>Create security group</em></li>
+    <li><em>Add rule</em>: Type <em>Custom TCP</em>, Port range <code>8080</code>, Source <em>Custom</em> → type <code>&lt;student-id&gt;-sg-alb</code> and pick the entry showing its <code>sg-…</code> ID (not <em>Use: "…"</em>) → <em>Create security group</em></li>
   </ol>
   <p class="small">Create them in this order — a rule can only reference a security group that already exists.</p>
 </section>
@@ -372,16 +372,15 @@ Other:
   </ol>
 </section>
 
-<section style="font-size:38.4px">
+<section style="font-size:36.8px">
   <h2>🧹 Cleanup</h2>
   <ol>
-    <li><strong>VPC</strong> → <em>Endpoints</em> → select <code>&lt;student-id&gt;-lab5-vpce-s3</code> → <em>Actions</em> → <em>Delete VPC endpoints</em> → confirm</li>
-    <li><strong>EC2</strong> → <em>Security Groups</em> → delete <code>&lt;student-id&gt;-sg-db</code> and <code>&lt;student-id&gt;-sg-vpce</code></li>
-    <li>Then delete <code>&lt;student-id&gt;-sg-app</code>, then <code>&lt;student-id&gt;-sg-alb</code></li>
-    <li><strong>VPC</strong> → <em>Your VPCs</em> → select <code>&lt;student-id&gt;-lab5-vpc</code> → <em>Actions</em> → <em>Delete VPC</em> → type <code>delete</code> → <em>Delete</em></li>
+    <li><strong>VPC</strong> → <em>Your VPCs</em> → select <code>&lt;student-id&gt;-lab5-vpc</code> → <em>Actions</em> → <em>Delete VPC</em></li>
+    <li>Review the <em>Will also be deleted</em> list — subnets, route tables, internet gateway, your custom NACL, the S3 endpoint, and all four <code>&lt;student-id&gt;-sg-…</code> groups (18 resources)</li>
+    <li>In <em>To confirm deletion, type delete in the field</em> (the bottom box — not the <em>Find entries</em> search) type <code>delete</code> → <em>Delete</em></li>
   </ol>
-  <p class="small">Order matters: a security group that another group's rule references can't be deleted ("has a dependent object"). <em>Delete VPC</em> removes the subnets, route tables, custom NACL, and internet gateway with it.</p>
-  <p class="small">✅ <strong>Check:</strong> <em>Your VPCs</em>, <em>Endpoints</em>, and <em>Security Groups</em> show nothing named <code>&lt;student-id&gt;-lab5…</code> / <code>&lt;student-id&gt;-sg-…</code>.</p>
+  <p class="small">The console deletes everything in the right order for you, including security groups that reference each other. (Deleting those groups one at a time instead fails with "has a dependent object" unless you go db/vpce → app → alb.)</p>
+  <p>✅ <strong>Check:</strong> <em>Your VPCs</em>, <em>Endpoints</em>, and <em>Security Groups</em> show nothing named <code>&lt;student-id&gt;-lab5…</code> / <code>&lt;student-id&gt;-sg-…</code>.</p>
 </section>
 
 <section data-background-color="#146EB4" style="font-size:43.2px">
